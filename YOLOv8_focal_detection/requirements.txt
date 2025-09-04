@@ -1,0 +1,8 @@
+numpy
+pandas
+h5py
+tifffile
+Pillow  # This will allow `from PIL import Image`
+scikit-learn  # This covers sklearn.cluster
+reportlab  # This covers reportlab.lib.pagesizes and reportlab.pdfgen
+ultralytics # Import the YOLOv8 models from ultralytics
