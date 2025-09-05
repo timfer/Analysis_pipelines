@@ -91,9 +91,9 @@ calculate_and_plot_marker_DEGs <- function(seurat.object, min.pct, logfc.thresho
   p <- DoHeatmap(seurat.object, features = top7$gene,
               size = 3, angle = 90) + #,
       #         group.colors = c("deepskyblue","red2","green","green3","red","deepskyblue3", "grey60", "grey80")) + 
-      scale_fill_gradient2( low = rev(c('#d1e5f0','#67a9cf','#2166ac')),
-                            mid = "white", high = rev(c('#b2182b','#ef8a62','#fddbc7')),
-                            midpoint = 0, guide = "colourbar", aesthetics = "fill") +
+    scale_fill_gradient2( low = rev(c('#436EEE','#3A5FCD','#27408B')),
+                          mid = "white", high = rev(c('#FFD700','#EEC900','#CDAD00')),
+                          midpoint = 0, guide = "colourbar", aesthetics = "fill") +
     NoLegend()
   print(p)
   ggsave(filename = path, plot = p, width = n_classes+8, 

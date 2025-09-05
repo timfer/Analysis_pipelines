@@ -31,7 +31,7 @@ library(stringr)
 #load custom functions around scRNA-seq with IRIS, imaging and tools used for analysis
 PATH_functions <- "/home/tferrari/updepla/users/tferrari/Experiments/RNA_Analysis/IRIS/scripts/PBMC_seurat_functions"
 source(paste0(PATH_functions,"/seuratV5_integration_v2.R"))
-source("/home/tferrari/NAS2/iris/1_scripts/iris_scRNAseq/2_functions/scRNA-seq/support_transcriptome_integration.R")
+source(paste0(PATH_functions, "/support_transcriptome_integration.R"))
 source(paste0(PATH_functions, "/count_annotation_matrix_creation.R"))
 source(paste0(PATH_functions, "/create_and_save_plots.R"))
 source(paste0(PATH_functions, "/calculate_signatures_markers.R"))
@@ -190,7 +190,7 @@ if(!file.exists(paste0(PATH_output_figures, "/unnamed_plots"))){
   message(paste("Directory already exists: ", paste0(PATH_output_figures, "/unnamed_plots")))
 }
 
-res <- 1.3
+res <- 1.0
 
 seurat.object <- cluster_UMAP_seurat(seurat.object, res, dims_use, integration.name,
                                      reduction.name, cluster_algo, 
@@ -227,7 +227,7 @@ text_content <- paste(
   "UMAP Resolution: ", res, "\n",
   "UMAP Integration Name: ", integration.name, "\n",
   "UMAP Reduction Name: ", reduction.name, "\n",
-  "Notes: JP303, JP304 & TF050 excluded from this analysis as they exhibit a healthy profile"
+  "Notes: "
 )
 
 writeLines(text_content, con = paste0(PATH_output, "/integration_parameters.txt"))
@@ -275,9 +275,11 @@ ggsave(filename = paste0(PATH_output_figures, "/QC_plots/cohort_plots/UMAP_cohor
 all_cohorts <- list(kmt2ar.pb, kmt2ar.bm, kmt2ar.hd.pb,
                     npm1.pb, npm1.bm,
                     hd.pb)
-cohort_names <- c("kmt2ar.pb", "kmt2ar.bm", "kmt2ar.hd.pb",
-                  "npm1.pb", "npm1.bm",
-                  "hd.pb")
+cohort_names <- c("kmt2ar_pb", "kmt2ar_bm", "kmt2ar_hd_pb",
+                  "npm1_pb", "npm1_bm",
+                  "hd_pb")
+
+
 i = 1
 for(cohort in all_cohorts){
   print(cohort)
@@ -431,16 +433,22 @@ print(paste("Class specific feature plots saved to ",
 #Rename clusters with major cell group attribution and then subselect again
 #Do not use the same names as for signature_PBMCs
 
-new.cluster.names <- c("CD4+_cells", "CD56+_cells",
-                       "CD8+_cells", "KMT2Ar_blasts_p1",
-                       "CD14+_cells", "KMT2Ar_blasts_p2",
-                       "CD4+_cells", "NPM1-mut_blasts_p2",
-                       "CD16+_cells", "NPM1-mut_blasts_p1",
-                       "CD19+_cells", "Trash"
+new.cluster.names <- c("", "CD14+_Classical_monocytes_(healthy)", # 1-2
+                       "", "CD56+_Natural_killer_cells_(healthy)", # 3-4
+                       "CD8+_Cytotoxic_T_cells_(healthy)", "CD4+_Memory_T_cells_(Central_memory-skewed_healthy)", # 5-6
+                       "CD4+_Helper_T_cells_(Th2-skewed_healthy)", "", # 7-8
+                       "CD4+_Naive_T_cells_(healthy)", "", # 9-10
+                       "", "", # 11-12
+                       "CD8+_Effector_Memory_T_cells_(healthy)", "", # 13-14
+                       "Erythrocytes_(contaminant)", "CD16+_Non-classical_monocytes_(healthy)", # 15-16
+                       "CD19+_B_cells_(healthy)", "CD8+_Naive_T_cells_)healthy)", # 17-18
+                       "Mucosal-associated_invariant_T_cells_(healthy)", "", # 19-20
+                       "FCER1A_Dendritic_cells_(healthy)", "", # 21-22
+                       "" # 23
                        )
 
  
-new.cluster.names <- gsub("_", " ", new.cluster.names)# Remove underscores if meta.data zscores have them
+# new.cluster.names <- gsub("_", " ", new.cluster.names)# Remove underscores if meta.data zscores have them
 
 seurat.object <- rename_clusters(seurat.object, new.cluster.names, reduction.name,
                                  paste0(PATH_output_figures, "/named_plots"))
@@ -572,7 +580,7 @@ p <- ggplot(cell_counts, aes(x = cluster, y = expID, size = proportion, fill = f
   )
 
 print(p)
-ggsave(filename = paste0(PATH_output_figures, "/bubble_plots/AML_bubble_plot.png"), 
+ggsave(filename = paste0(PATH_output_figures, "/bubble_plots/unnamed_AML_bubble_plot.png"), 
        plot = p, width = 12, height = 8)
 
 # Create top DEG bubble plot
@@ -729,7 +737,7 @@ GO_path = paste0(PATH_output_figures, "/GO_plots")
 
 # Subselect clusters if needed
 filt.mrkrs.4.go <- l.new.markers[[2]] %>%
-  filter(grepl("NPM", cluster, ignore.case = FALSE))
+  filter(grepl("TRA", cluster, ignore.case = TRUE)) "This is wrong --> Correct"
 
 l_GO_results <- calculate_GO_terms(l.new.markers[[1]], species, 3, GO_path)
 saveRDS(l_GO_results, file = paste0(PATH_output_tables, "/l_GO_results.Rds"))
