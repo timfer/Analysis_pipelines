@@ -4,6 +4,7 @@
 ## 2) Superimposte image data classification for DEG analysis and visualization
 
 "Note: all combined integrations are CCA integrated by layer"
+install.packages("languageserver")
 options(future.globals.maxSize = +Inf)
 #libraries
 library(dplyr)
@@ -28,10 +29,19 @@ library(ggrepel)
 library(EnhancedVolcano)
 library(stringr)
 
+# Set custom color palette here
+custom.palette <- c("1"="#104E8B", "2"="#FF3030", "3"="#228B22", "4"="#FF8C00",
+                    "5"="#9400D3", "6"="#00FFFF", "7"="#FF1493", "8"="#7FFF00",
+                    "9"="#FFD700", "10"="#FF00FF", "11"="#00FF7F", "12"="#FF0000",
+                    "13"="#FFFF00", "14"="#D02090", "15"="#A020F0", "16"="#ADFF2F",
+                    "17"="#483D8B", "18"="#00CED1", "19"="#00FF00", "20"="#FFA500",
+                    "21"="#8B008B", "22"="#FF4500", "23"="#E066FF", "24"="#00BFFF",
+                    "25"="#FF69B4", "26"="#CD0000", "27"="#54FF9F", "30"="#EE1289")
+
 #load custom functions around scRNA-seq with IRIS, imaging and tools used for analysis
 PATH_functions <- "/home/tferrari/updepla/users/tferrari/Experiments/RNA_Analysis/IRIS/scripts/PBMC_seurat_functions"
 source(paste0(PATH_functions,"/seuratV5_integration_v2.R"))
-source(paste0(PATH_functions, "/support_transcriptome_integration.R"))
+source(paste0(PATH_functions,"/support_transcriptome_integration.R"))
 source(paste0(PATH_functions, "/count_annotation_matrix_creation.R"))
 source(paste0(PATH_functions, "/create_and_save_plots.R"))
 source(paste0(PATH_functions, "/calculate_signatures_markers.R"))
@@ -119,24 +129,16 @@ logfc.threshold <- 0.25
 #want to maintain "uniqueness" of clusters for datasets with low relative cell counts)
 cond.2.rmv <- c()
 
+#Set UMAP reduction name
+integration.name <- "pca"
 #Set whether to first split layers and then perform IntegrateLayers on the seurat.object
 #Will split and integrate layers if "yes"
 split.layers <- "yes"
 integrate.layers <- "yes"
-integration.type <- "harmony" 
-# Integration method for integrate layers: CCAIntegration, RPCAIntegration, HarmonyIntegration
-# FastMNNIntegration, scVIIntegration
-#integration.method <- CCAIntegration
-
-#Select the type of community clustering algorithm
-cluster_algo <- "Leiden"
-
-#UMAP resolution
-# resolution <- 0.3
-#Set UMAP reduction name
-integration.name <- "pca"
 integration.type <- "harmony" # Option: "cca", "rpca", "harmony"
 reduction.name <- "umap"
+#Select the type of community clustering algorithm
+cluster_algo <- "Leiden"
 
 #######################################
 #Image data
@@ -190,7 +192,7 @@ if(!file.exists(paste0(PATH_output_figures, "/unnamed_plots"))){
   message(paste("Directory already exists: ", paste0(PATH_output_figures, "/unnamed_plots")))
 }
 
-res <- 1.0
+res <- 1.3
 
 seurat.object <- cluster_UMAP_seurat(seurat.object, res, dims_use, integration.name,
                                      reduction.name, cluster_algo, 
@@ -227,7 +229,7 @@ text_content <- paste(
   "UMAP Resolution: ", res, "\n",
   "UMAP Integration Name: ", integration.name, "\n",
   "UMAP Reduction Name: ", reduction.name, "\n",
-  "Notes: "
+  "Notes: JP303, JP304 & TF050 excluded from this analysis as they exhibit a healthy profile"
 )
 
 writeLines(text_content, con = paste0(PATH_output, "/integration_parameters.txt"))
@@ -275,11 +277,9 @@ ggsave(filename = paste0(PATH_output_figures, "/QC_plots/cohort_plots/UMAP_cohor
 all_cohorts <- list(kmt2ar.pb, kmt2ar.bm, kmt2ar.hd.pb,
                     npm1.pb, npm1.bm,
                     hd.pb)
-cohort_names <- c("kmt2ar_pb", "kmt2ar_bm", "kmt2ar_hd_pb",
-                  "npm1_pb", "npm1_bm",
-                  "hd_pb")
-
-
+cohort_names <- c("kmt2ar.pb", "kmt2ar.bm", "kmt2ar.hd.pb",
+                  "npm1.pb", "npm1.bm",
+                  "hd.pb")
 i = 1
 for(cohort in all_cohorts){
   print(cohort)
@@ -434,21 +434,21 @@ print(paste("Class specific feature plots saved to ",
 #Do not use the same names as for signature_PBMCs
 
 new.cluster.names <- c("", "CD14+_Classical_monocytes_(healthy)", # 1-2
-                       "", "CD56+_Natural_killer_cells_(healthy)", # 3-4
-                       "CD8+_Cytotoxic_T_cells_(healthy)", "CD4+_Memory_T_cells_(Central_memory-skewed_healthy)", # 5-6
-                       "CD4+_Helper_T_cells_(Th2-skewed_healthy)", "", # 7-8
-                       "CD4+_Naive_T_cells_(healthy)", "", # 9-10
-                       "", "", # 11-12
-                       "CD8+_Effector_Memory_T_cells_(healthy)", "", # 13-14
-                       "Erythrocytes_(contaminant)", "CD16+_Non-classical_monocytes_(healthy)", # 15-16
-                       "CD19+_B_cells_(healthy)", "CD8+_Naive_T_cells_)healthy)", # 17-18
-                       "Mucosal-associated_invariant_T_cells_(healthy)", "", # 19-20
-                       "FCER1A_Dendritic_cells_(healthy)", "", # 21-22
-                       "" # 23
+                         "", "CD56+_Natural_killer_cells_(healthy)", # 3-4
+                         "CD8+_Cytotoxic_T_cells_(healthy)", "CD4+_Memory_T_cells_(Central_memory-skewed_healthy)", # 5-6
+                         "CD4+_Helper_T_cells_(Th2-skewed_healthy)", "", # 7-8
+                         "CD4+_Naive_T_cells_(healthy)", "", # 9-10
+                         "", "", # 11-12
+                         "CD8+_Effector_Memory_T_cells_(healthy)", "", # 13-14
+                         "Erythrocytes_(contaminant)", "CD16+_Non-classical_monocytes_(healthy)", # 15-16
+                         "CD19+_B_cells_(healthy)", "CD8+_Naive_T_cells_)healthy)", # 17-18
+                         "Mucosal-associated_invariant_T_cells_(healthy)", "", # 19-20
+                         "FCER1A_Dendritic_cells_(healthy)", "", # 21-22
+                         "" # 23
                        )
 
  
-# new.cluster.names <- gsub("_", " ", new.cluster.names)# Remove underscores if meta.data zscores have them
+new.cluster.names <- gsub("_", " ", new.cluster.names)# Remove underscores if meta.data zscores have them
 
 seurat.object <- rename_clusters(seurat.object, new.cluster.names, reduction.name,
                                  paste0(PATH_output_figures, "/named_plots"))
@@ -580,7 +580,7 @@ p <- ggplot(cell_counts, aes(x = cluster, y = expID, size = proportion, fill = f
   )
 
 print(p)
-ggsave(filename = paste0(PATH_output_figures, "/bubble_plots/unnamed_AML_bubble_plot.png"), 
+ggsave(filename = paste0(PATH_output_figures, "/bubble_plots/AML_bubble_plot.png"), 
        plot = p, width = 12, height = 8)
 
 # Create top DEG bubble plot
@@ -737,7 +737,7 @@ GO_path = paste0(PATH_output_figures, "/GO_plots")
 
 # Subselect clusters if needed
 filt.mrkrs.4.go <- l.new.markers[[2]] %>%
-  filter(grepl("TRA", cluster, ignore.case = TRUE)) "This is wrong --> Correct"
+  filter(grepl("NPM", cluster, ignore.case = FALSE))
 
 l_GO_results <- calculate_GO_terms(l.new.markers[[1]], species, 3, GO_path)
 saveRDS(l_GO_results, file = paste0(PATH_output_tables, "/l_GO_results.Rds"))

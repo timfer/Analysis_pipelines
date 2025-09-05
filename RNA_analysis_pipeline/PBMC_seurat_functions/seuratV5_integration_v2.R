@@ -1,5 +1,3 @@
-source("/home/tferrari/updepla/users/tferrari/Experiments/RNA_Analysis/IRIS/scripts/PBMC_seurat_functions/create_and_save_plots.R")
-
 #Scope | 
 # 1) Perform Seurat batch correction
 # 2) Batch correction experiment-based
@@ -26,6 +24,14 @@ source("/home/tferrari/updepla/users/tferrari/Experiments/RNA_Analysis/IRIS/scri
 
 #common variables to regress are: "n_UMI", "percent.mt", "Phase"
 #vars_to_regress <- c()
+
+custom.palette <- c("1"="#104E8B", "2"="#FF3030", "3"="#228B22", "4"="#FF8C00",
+                    "5"="#9400D3", "6"="#00FFFF", "7"="#FF1493", "8"="#7FFF00",
+                    "9"="#FFD700", "10"="#FF00FF", "11"="#00FF7F", "12"="#FF0000",
+                    "13"="#FFFF00", "14"="#D02090", "15"="#A020F0", "16"="#ADFF2F",
+                    "17"="#483D8B", "18"="#00CED1", "19"="#00FF00", "20"="#FFA500",
+                    "21"="#8B008B", "22"="#FF4500", "23"="#E066FF", "24"="#00BFFF",
+                    "25"="#FF69B4", "26"="#CD0000", "27"="#54FF9F", "30"="#EE1289")
 
 #Conditionals
 # 1) If-clause for species for cell-cycle genes, mt, rpl, hsp, computation
@@ -142,31 +148,11 @@ seurat_integrate <- function(
   
   seurat.object_v5 <- RunPCA(seurat.object_v5, npcs = dims_use, verbose = FALSE)
   integration.name <- "pca"
-  print("<<<PCA complete>>>")
   
-  # Score and plot JackStraw
-  # print("<<<Scoring and plotting JackStraw>>>")
-  # max_dims <- min(dims_use, length(seurat.object_v5@reductions$pca))
-  
-  # seurat.object_v5 <- JackStraw(seurat.object_v5, reduction = "pca", 
-  #                               num.replicate = 100, dims = dims_use, verbose = TRUE)
-  # seurat.object_v5 <- ScoreJackStraw(seurat.object_v5, reduction = "pca",
-  #                                    dims = 1:dims_use)
   # Ensure the output directory exists
   if (!dir.exists(path)) {
     dir.create(path, recursive = TRUE)
   }
-  
-  # Generate and save JackStrawPlot
-  # p <- JackStrawPlot(seurat.object_v5, dims = 20:dims_use) +
-  #   theme(
-  #     plot.background = element_rect(fill = "white", color = NA),
-  #     panel.background = element_rect(fill = "white", color = NA),
-  #     panel.grid.major = element_line(color = "grey80"),
-  #     panel.grid.minor = element_line(color = "grey90")
-  #   )
-  # print(p)
-  # ggsave(filename = paste0(path, "/jackstraw_plot.png"), plot = p)
   
   #Generate elbow plot for dimension determination
   p <- ElbowPlot(seurat.object_v5, ndims = dims_use) +
@@ -179,14 +165,59 @@ seurat_integrate <- function(
     )
   print(p)
   ggsave(filename = paste0(path, "/elbow_plot.png"), plot = p)
-  
-  stdevs <- seurat.object_v5@reductions$pca@stdev
-  min_stdev <- min(stdevs)
-  thresh <- min_stdev * 1.025 # Make a st_dev threshold @ 2.5% deviation
-  #Return the dimension which fulfills the above threshold criterium, assign value to parameters
-  dims_use <- which(stdevs <= thresh)[1]
-  cat("PCA dimensions set: ", dims_use, "\n")
   print("<<<FVB, Scale, Regression, PCA done>>>")
+  
+  if (!dir.exists(paste0(path, "/QC_plots/PCA_hmap"))) {
+    dir.create(paste0(path, "/QC_plots/PCA_hmap"), recursive = TRUE)
+  }
+  
+  # Loop over blocks of 10 PCs
+  for (i in 1:3) {
+    dims_to_plot <- (i * 10):((i + 1) * 10)
+    fname <- sprintf("dim_%d-%d.png", dims_to_plot[1], dims_to_plot[length(dims_to_plot)])
+    fpath <- file.path(paste0(path, "/QC_plots/PCA_hmap/", fname))
+    
+    # Open a PNG device (8x12 inches at 300 dpi)
+    png(
+      filename = fpath,
+      width    = 8,
+      height   = 12,
+      units    = "in",
+      res      = 300
+    )
+    
+    # This draws the heatmap into the file
+    DimHeatmap(
+      object   = seurat.object_v5,
+      dims     = dims_to_plot,
+      cells    = 1000,
+      balanced = TRUE
+    )
+    
+    # Close the device, finalizing the PNG
+    dev.off()
+  }
+  
+  print("<<<PCA complete>>>")
+  
+  # Score and plot JackStraw
+  print("<<<Scoring and plotting JackStraw>>>")
+  # max_dims <- min(dims_use, length(seurat.object_v5@reductions$pca))
+
+  seurat.object_v5 <- JackStraw(seurat.object_v5, reduction = "pca", dims=10:30,
+                               num.replicate = 100, verbose = TRUE)
+  seurat.object_v5 <- ScoreJackStraw(seurat.object_v5, reduction = "pca",
+                                     dims = 10:30)
+  # Generate and save JackStrawPlot
+  p <- JackStrawPlot(seurat.object_v5, dims = 10:30) +
+    theme(
+      plot.background = element_rect(fill = "white", color = NA),
+      panel.background = element_rect(fill = "white", color = NA),
+      panel.grid.major = element_line(color = "grey80"),
+      panel.grid.minor = element_line(color = "grey90")
+    )
+  print(p)
+  ggsave(filename = paste0(path, "/jackstraw_plot.png"), plot = p)
   
   #Compute Integrations
   # Ensure k.weight is smaller than the minimum number of cells
@@ -255,35 +286,36 @@ find_cluster_resolution <- function(seurat.object_v5,
     seurat.object_v5 <- RunUMAP(seurat.object_v5, reduction = integration.name,
                                 dims = 1:dims_use, reduction.name = reduction_name, 
                                 verbose = TRUE)
-    p <- DimPlot(seurat.object_v5, reduction = reduction_name, label = TRUE, pt.size = 0.3)
+    p <- DimPlot(seurat.object_v5, reduction = reduction_name, label = TRUE, pt.size = 0.3,
+                 cols = custom.palette) +
+      labs(title = paste("UMAP clustering at resolution", res)) +
+      theme(plot.title = element_text(hjust = 0.5, face = "bold"))
     print(p)
     ggsave(filename = paste0(path, "/", gsub("\\.", "_", reduction_name), ".png"), 
            plot = p, height = 8, width = 10)
     
-    # seurat.object_v5 <- JoinLayers(seurat.object_v5)
-    # markers.all <- FindAllMarkers(seurat.object_v5, only.pos = FALSE,
-    #                               min.pct = min.pct, logfc.threshold = logfc.threshold)
-    # 
-    # markers.all <- markers.all %>% arrange(cluster, desc(avg_log2FC))
-    # head(markers.all)
-    # 
-    # #Select top 250 DEGs
-    # markers.all %>% group_by(cluster) %>%
-    #   top_n(n = 7, wt = avg_log2FC) -> top7
-    # 
-    # #Plot heatmap
-    # n_classes = length(unique(seurat.object_v5@meta.data$seurat_clusters))
-    # 
-    # p <- DoHeatmap(seurat.object_v5, features = top7$gene,
-    #                size = 3, angle = 90) + #,
-    #   #         group.colors = c("deepskyblue","red2","green","green3","red","deepskyblue3", "grey60", "grey80")) + 
-    #   scale_fill_gradient2( low = rev(c('#d1e5f0','#67a9cf','#2166ac')),
-    #                         mid = "white", high = rev(c('#b2182b','#ef8a62','#fddbc7')),
-    #                         midpoint = 0, guide = "colourbar", aesthetics = "fill") +
-    #   NoLegend()
-    # print(p)
-    # ggsave(filename = paste0(path, "/", gsub("\\.", "_", paste0(integration.name, "DEG_res", res)), ".png"), 
-    #        plot = p, width = 10, height = 18)
+    seurat.object_v5 <- JoinLayers(seurat.object_v5)
+    markers.all <- FindAllMarkers(seurat.object_v5, only.pos = FALSE,
+                                  min.pct = min.pct, logfc.threshold = logfc.threshold)
+
+    markers.all <- markers.all %>% arrange(cluster, desc(avg_log2FC))
+    head(markers.all)
+
+    #Select top 250 DEGs
+    markers.all %>% group_by(cluster) %>%
+      top_n(n = 7, wt = avg_log2FC) -> top7
+
+    #Plot heatmap
+    ordered_palette <- custom.palette[order(as.integer(names(custom.palette)))]
+    p <- DoHeatmap(seurat.object_v5, features = top7$gene,
+                   size = 3, angle = 90, group.colors = ordered_palette) +
+      scale_fill_gradient2( low = rev(c('#0000CD','#000080', '#00008B')),
+                            mid = "white", high = rev(c('#FFD700','#EEC900','#CDAD00')),
+                            midpoint = 0, guide = "colourbar", aesthetics = "fill") +
+      NoLegend()
+    print(p)
+    ggsave(filename = paste0(path, "/", gsub("\\.", "_", paste0(integration.name, "DEG_res", res)), ".png"),
+           plot = p, width = 10, height = 18)
   }
 }
 

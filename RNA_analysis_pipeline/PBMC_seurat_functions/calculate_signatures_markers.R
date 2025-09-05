@@ -1,5 +1,3 @@
-source("/home/tferrari/NAS2/iris/1_scripts/iris_scRNAseq/2_functions/scRNA-seq/PBMC_seurat_functions/create_and_save_plots.R")
-
 calculate_cell_signatures <- function(signatures, seurat.object, ngenes, reduction.name, path){
   signatures$cluster <- gsub(" ", "_", signatures$cluster)
   
@@ -74,11 +72,6 @@ calculate_and_plot_marker_DEGs <- function(seurat.object, min.pct, logfc.thresho
   markers.all %>%
     group_by(cluster) %>%
     top_n(n = num.mrkrs, wt = avg_log2FC) -> topn
-  #Select restricted top DEGs for plotting
-  #markers.all %>% group_by(cluster) %>%
-  #  top_n(n = 20, wt = avg_log2FC) -> top20
-  #markers.all %>% group_by(cluster) %>%
-  #  top_n(n = 10, wt = avg_log2FC) -> top10
   markers.all %>% group_by(cluster) %>%
     top_n(n = 7, wt = avg_log2FC) -> top7
 
@@ -88,10 +81,10 @@ calculate_and_plot_marker_DEGs <- function(seurat.object, min.pct, logfc.thresho
 
   #Plot heatmap
   n_classes = length(unique(Idents(seurat.object)))
+  ordered_palette <- custom.palette[order(as.integer(names(custom.palette)))]
   p <- DoHeatmap(seurat.object, features = top7$gene,
-              size = 3, angle = 90) + #,
-      #         group.colors = c("deepskyblue","red2","green","green3","red","deepskyblue3", "grey60", "grey80")) + 
-    scale_fill_gradient2( low = rev(c('#436EEE','#3A5FCD','#27408B')),
+              size = 3, angle = 90, group.colors = ordered_palette) +
+    scale_fill_gradient2( low = rev(c('#0000CD','#000080', '#00008B')),
                           mid = "white", high = rev(c('#FFD700','#EEC900','#CDAD00')),
                           midpoint = 0, guide = "colourbar", aesthetics = "fill") +
     NoLegend()

@@ -1,21 +1,11 @@
-# generate_color_palette <- function(n_groups) {
-#   # Define the base colors for the first 8 discrete groups
-#   base_colors <- c("deepskyblue", "red2", "green", "green3", "red", 
-#                    "deepskyblue3", "grey60", "grey80")
-#   
-#   # If groups <= 8, return the base colors
-#   if (n_groups <= length(base_colors)) {
-#     return(base_colors[1:n_groups])
-#   } else {
-#     # If groups > 8, generate additional colors with gradient transition
-#     # Define gradient colors based on your `scale_fill_gradient2` scheme but without white
-#     gradient_colors <- colorRampPalette(rev(c('#d1e5f0', '#67a9cf', '#2166ac', 
-#                                               '#b2182b', '#ef8a62', '#fddbc7')))(n_groups - length(base_colors))
-#     
-#     # Combine base colors and gradient colors
-#     return(c(base_colors, gradient_colors))
-#   }
-# }
+# Set custom color palette here
+custom.palette <- c("1"="#104E8B", "2"="#FF3030", "3"="#228B22", "4"="#FF8C00",
+                    "5"="#9400D3", "6"="#00FFFF", "7"="#FF1493", "8"="#7FFF00",
+                    "9"="#FFD700", "10"="#FF00FF", "11"="#00FF7F", "12"="#FF0000",
+                    "13"="#FFFF00", "14"="#D02090", "15"="#A020F0", "16"="#ADFF2F",
+                    "17"="#483D8B", "18"="#00CED1", "19"="#00FF00", "20"="#FFA500",
+                    "21"="#8B008B", "22"="#FF4500", "23"="#E066FF", "24"="#00BFFF",
+                    "25"="#FF69B4", "26"="#CD0000", "27"="#54FF9F", "30"="#EE1289")
 
 generate_QC_plots <- function(seurat.object, res, reduction.name, target_expID, path) {
   # Ensure the output directory exists
@@ -26,7 +16,7 @@ generate_QC_plots <- function(seurat.object, res, reduction.name, target_expID, 
   # cluster_colors <- generate_color_palette(n_clusters)
   # 
   p <- VlnPlot(seurat.object, features = c("nFeature_RNA"),
-               group.by = "expID", pt.size = 0) + 
+               group.by = "expID", pt.size = 0, cols = custom.palette) + 
     labs(title = NULL) +
     xlab("Experimental ID (batch)") + ylab("nFeature_RNA (counts)") + 
     plot_annotation(title = "Feature RNA counts per experimental batch") +
@@ -38,7 +28,7 @@ generate_QC_plots <- function(seurat.object, res, reduction.name, target_expID, 
          width = 8, height = 8)
   
   p <- VlnPlot(seurat.object, features = c("nCount_RNA"),
-               group.by = "expID", pt.size = 0) + 
+               group.by = "expID", pt.size = 0, cols = custom.palette) + 
     labs(title = NULL) +
     xlab("Experimental ID (batch)") + ylab("nCount_RNA (counts)") + 
     plot_annotation(title = "RNA counts per experimental batch") +
@@ -51,7 +41,7 @@ generate_QC_plots <- function(seurat.object, res, reduction.name, target_expID, 
          width = 8, height = 8)
   
   p <- VlnPlot(seurat.object, features = c("percent.mt"),
-               group.by = "expID", pt.size = 0) + 
+           group.by = "expID", pt.size = 0, cols = custom.palette) + 
     labs(title = NULL) +
     xlab("Experimental ID (batch)") + ylab("Mitochondrial gene expression (per cent (%))") + 
     plot_annotation(title = "Fraction of mitochondrial genes expressed per experimental batch") +
@@ -63,7 +53,7 @@ generate_QC_plots <- function(seurat.object, res, reduction.name, target_expID, 
          width = 8, height = 8)
   
   p <- VlnPlot(seurat.object, features = c("nFeature_RNA"),
-               group.by = "seurat_clusters", pt.size = 0) + 
+               group.by = "seurat_clusters", pt.size = 0, cols = custom.palette) + 
     labs(title = NULL) +
     xlab(paste0("UMAP cluster (resolution ", res,")")) + ylab("nFeature_RNA (counts)") + 
     plot_annotation(title = "Feature RNA counts per integrated low-dimensional cluster") +
@@ -75,7 +65,7 @@ generate_QC_plots <- function(seurat.object, res, reduction.name, target_expID, 
          width = 8, height = 8)
   
   p <- VlnPlot(seurat.object, features = c("nCount_RNA"),
-               group.by = "seurat_clusters", pt.size = 0) + 
+               group.by = "seurat_clusters", pt.size = 0, cols = custom.palette) + 
     labs(title = NULL) +
     xlab(paste0("UMAP cluster (resolution ", res,")")) + ylab("nCount_RNA (counts)") + 
     plot_annotation(title = "RNA counts per integrated low-dimensional cluster") +
@@ -87,7 +77,7 @@ generate_QC_plots <- function(seurat.object, res, reduction.name, target_expID, 
          width = 8, height = 8)
   
   p <- VlnPlot(seurat.object, features = c("percent.mt"),
-               group.by = "seurat_clusters", pt.size = 0) + 
+               group.by = "seurat_clusters", pt.size = 0, cols = custom.palette) + 
     labs(title = NULL) +
     xlab(paste0("UMAP cluster (resolution ", res,")")) + ylab("Mitochondrial gene expression (per cent (%))") + 
     plot_annotation(title = "Feature RNA counts per integrated low-dimensional cluster") +
@@ -99,11 +89,11 @@ generate_QC_plots <- function(seurat.object, res, reduction.name, target_expID, 
          width = 8, height = 8)
   
   p1 <- FeatureScatter(seurat.object, feature1 = "n_mapped_reads", feature2 = "n_UMI",
-                       group.by = "expID") # +
+                       group.by = "expID", cols = custom.palette) # +
     # scale_x_continuous(labels = function(x) x / 1e4) + xlab(expression("n_mapped_reads (×10"^4*")")) +
     # scale_y_continuous(labels = function(x) x / 1e2) + ylab(expression("n_UMI (×10"^2*")"))
   p2 <- FeatureScatter(seurat.object, feature1 = "n_mapped_reads", feature2 = "nFeature_RNA",
-                       group.by = "expID") # +
+                       group.by = "expID", cols = custom.palette) # +
     # scale_x_continuous(labels = function(x) x / 1e4) + xlab(expression("n_mapped_reads (×10"^4*")"))
   p <- p1 + p2 + plot_layout(guides = 'collect')
   print(p)
@@ -111,9 +101,9 @@ generate_QC_plots <- function(seurat.object, res, reduction.name, target_expID, 
          width = 8, height = 8)
   
   p1 <- FeatureScatter(seurat.object, feature1 = "nCount_RNA",
-                      feature2 = "percent.mt", group.by = "expID")
+                      feature2 = "percent.mt", group.by = "expID", cols = custom.palette)
   p2 <- FeatureScatter(seurat.object, feature1 = "nCount_RNA",
-                      feature2 = "nFeature_RNA", group.by = "expID")
+                      feature2 = "nFeature_RNA", group.by = "expID", cols = custom.palette)
   p <- p1 + p2 + plot_layout(guides = 'collect')
   print(p)
   ggsave(filename = paste0(path, "/var_ftr_scatter.png"), plot = p,
@@ -122,14 +112,14 @@ generate_QC_plots <- function(seurat.object, res, reduction.name, target_expID, 
   #Plot regression variables on feature scatter plot
   ftrs = c("nCount_RNA","nFeature_RNA", "percent.mt", "percent.Hsp")
   p <- FeaturePlot(seurat.object, features = ftrs, reduction = reduction.name, 
-                  pt.size = 0.3)
+                  pt.size = 0.3, cols = custom.palette)
   print(p)
   ggsave(filename = paste0(path, "/ftr_plot_regression_vars.png"), plot = p,
          width = 16, height = 16)
   
   #Plot the UMAPs split by experimental ID
   p <- DimPlot(seurat.object, reduction = reduction.name, label = FALSE,
-              pt.size = 0.5, split.by = "expID", ncol = 4) + #, cols = cluster_colors) + 
+              pt.size = 0.5, split.by = "expID", ncol = 4, cols = custom.palette) + #, cols = cluster_colors) + 
     NoLegend()
   print(p)
   ggsave(
@@ -170,9 +160,9 @@ generate_QC_plots <- function(seurat.object, res, reduction.name, target_expID, 
   #   message("target_expID is empty, skipping the plot.")
   # }
   #Plot UMAP with overlayed experiments to check for batch effects
-  colors <- brewer.pal(length(unique(seurat.object$expID)), "Set2") #Set colors
+  # colors <- brewer.pal(length(unique(seurat.object$expID)), "Set2") #Set colors
   p <- DimPlot(seurat.object, reduction = reduction.name, pt.size = 0.5,
-              group.by = "expID")
+              group.by = "expID", cols = custom.palette) + #, cols = cluster_colors) +
   print(p)
   ggsave(filename = paste0(path, "/UMAP_unnamed_exp_overlap.png"), plot = p,
          width = 12, height = 8)
@@ -187,6 +177,7 @@ generate_bar_plots <- function(seurat.object, path) {
   # Absolute Bar Plot
   p <- ggplot(cluster_counts, aes(x = seurat_clusters, y = n, fill = CC)) +
     geom_bar(stat = 'identity', position = 'dodge') +
+    scale_fill_manual(values = custom.palette) +
     facet_wrap(~ orig.ident) +
     labs(title = "Absolute Number of Cells by Cluster", 
          y = "Cell Count (absolute)", 
@@ -206,6 +197,7 @@ generate_bar_plots <- function(seurat.object, path) {
   # Relative Bar Plot
   p <- ggplot(cluster_counts, aes(x = seurat_clusters, y = relative_count, fill = CC)) +
     geom_bar(stat = 'identity', position = 'dodge') +
+    scale_fill_manual(values = custom.palette) +
     facet_wrap(~ orig.ident) +
     labs(title = "Relative Proportion of Cells by Cluster", 
          y = "Relative Cell Count (%)", 
@@ -230,13 +222,13 @@ generate_ftr_plots_umap <- function(seurat.object, reduction.name, path){
   #Feature plots & UMAP
   #####
   #Plot cell type discriminating genes on feature plot
-  ftrs = c("CD14", "CD3E", "CD19", "NKG7", "CD4",
-          "TNF", "IL6", "IL1B", "CD8A", "GZMA", "IL2RA", "NCAM1", 
-          "CD34", "MKI67")
+  ftrs = c("CD3E", "CD8A", "CD4", "CD19", "CD14", "NKG7", 
+          "TNF", "IL6", "IL1B", "GZMA", "IL2RA", "NCAM1", 
+          "CD34", "CD38", "KIT", "MKI67", "BCL2", "IDH1", "IDH2")
   p <- FeaturePlot(seurat.object, features = ftrs, reduction = reduction.name,
                   pt.size = 0.3)
   print(p)
-  ggsave(filename = paste0(path, "/ftr_plots_genes.png"), plot = p, width = 32, height = 24)
+  ggsave(filename = paste0(path, "/ftr_plots_genes.png"), plot = p, width = 32, height = 48)
   
   #####
   #UMAPs
@@ -244,8 +236,8 @@ generate_ftr_plots_umap <- function(seurat.object, reduction.name, path){
   # Plot the combined UMAP
   # n_clusters <- length(unique(seurat.object@meta.data$seurat_clusters))
   # umap_colors <- generate_color_palette(n_clusters)
-  
-  p <- DimPlot(seurat.object, label = TRUE) #, cols = umap_colors)
+
+  p <- DimPlot(seurat.object, label = TRUE, cols = custom.palette) #, cols = umap_colors)
   print(p)
   ggsave(filename = paste0(path, "/UMAP_unnamed.png"), plot = p,
          height = 8, width = 10)

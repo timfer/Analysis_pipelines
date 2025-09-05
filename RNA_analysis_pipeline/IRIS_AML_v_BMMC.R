@@ -29,8 +29,17 @@ library(EnhancedVolcano)
 library(biomaRt)
 library(data.table)
 
+# Set custom color palette here
+custom.palette <- c("1"="#104E8B", "2"="#FF3030", "3"="#228B22", "4"="#FF8C00",
+                    "5"="#9400D3", "6"="#00FFFF", "7"="#FF1493", "8"="#7FFF00",
+                    "9"="#FFD700", "10"="#FF00FF", "11"="#00FF7F", "12"="#FF0000",
+                    "13"="#FFFF00", "14"="#D02090", "15"="#A020F0", "16"="#ADFF2F",
+                    "17"="#483D8B", "18"="#00CED1", "19"="#00FF00", "20"="#FFA500",
+                    "21"="#8B008B", "22"="#FF4500", "23"="#E066FF", "24"="#00BFFF",
+                    "25"="#FF69B4", "26"="#CD0000", "27"="#54FF9F", "30"="#EE1289")
+
 #load custom functions around scRNA-seq with IRIS, imaging and tools used for analysis
-PATH_functions <- "/home/tferrari/updepla/users/tferrari/Experiments/RNA_Analysis/IRIS/scripts/PBMC_seurat_functions"
+PATH_functions <- "/home/tferrari/updepla/users/tferrari/GitHub_repos/IRIS_Analysis_pipelines/RNA_analysis_pipeline/PBMC_seurat_functions"
 source(paste0(PATH_functions,"/seuratV5_integration_v2.R"))
 source(paste0(PATH_functions, "/support_transcriptome_integration.R"))
 source(paste0(PATH_functions, "/count_annotation_matrix_creation.R"))
@@ -46,9 +55,12 @@ source(paste0(PATH_functions, "/create_annotation_dataframe.R"))
 userID <- "tferrari"
 analysisID <- "2024_PBMCs"
 #Samples to integrate
-sample_ids_IRIS <- c("NG078", "NG075",
-                     "TF051"
-                     )
+sample_ids_IRIS <- c("JP303", "TF050", "JP304", # KMT2Ar no blasts (healthy profile)
+                     "TF047", "TF048", "NG079", "JP318", "TF059", # KMT2Ar PB samples
+                     "TF062", "JP316", # "NG084", # KMT2Ar BM
+                     "NG064", "TF051", "TF052", "JP317", "TF064", "TF066", "JP315", "TF063", "NG083", # NPM1 PB
+                     "TF058", "NG080", "NG082", "TF065", # NPM1 BM
+                     "NG037", "NG039", "NG042", "NG050", "NG078", "NG075", "JP314", "TF061", "TF057") # HD PB controls)
 sample_ids <- c(sample_ids_IRIS)
 #Define paths
 PATH_input_IRIS_sequencing <- paste0("/home/",userID,"/updepla/projects/iris/4_sequencing_analysis")
@@ -58,7 +70,7 @@ PATH_gtf_annotation <- paste0("/home/", userID, "/updepla/users/", userID,
 
 PATH_output <- paste0("/home/",userID,
                       "/updepla/users/", userID, 
-                      "/Experiments/RNA_analysis/IRIS/AML_experiments/results/BM-PB/everything/noosc_nolay")
+                      "/Experiments/RNA_analysis/IRIS/AML_experiments/results/AML_samples/KMT2Ar_v_NPM1_v_HD_v_oscBM/harmony")
 PATH_output_figures <- paste0(PATH_output,"/plots")
 PATH_output_objects <- paste0(PATH_output,"/objects")
 PATH_output_tables <- paste0(PATH_output,"/tables")
@@ -118,8 +130,10 @@ cond.2.rmv <- c()
 #Set whether to first split layers and then perform IntegrateLayers on the seurat.object
 #Will split and integrate layers if "yes"
 split.layers <- "yes"
-integrate.layers <- "no"
+integrate.layers <- "yes"
 integration.type <- "harmony"
+
+cluster_algo <- "Leiden" # Options: "Leiden" or "Louvain"
 
 #UMAP resolution
 # resolution <- 0.8
@@ -222,7 +236,7 @@ meta.data.BM <- seurat.BM@meta.data
 # The bone marrow datasets are massive compared to IRIS, so let's subset
 meta.data.BM %>% count(donor_id)
 
-selected.id <- c("TSP2", "TSP14")
+selected.id <- c("TSP2", "TSP14", "TSP21", "TSP25")
 meta.data.BM <- meta.data.BM %>% filter(donor_id %in% selected.id)
 meta.data.BM$expID <- meta.data.BM$donor_id
 meta.data.BM$cell_id <- rownames(meta.data.BM)
@@ -273,7 +287,7 @@ integration.results <- seurat_integrate(
   min_cells_percent,
   min_gene_number,
   mito_cutoff,
-  100, # dims_use
+  dims_use,
   vars_to_regress,
   split.layers,
   integrate.layers,
@@ -281,13 +295,13 @@ integration.results <- seurat_integrate(
   paste0(PATH_output_figures, "/QC_plots"))
 
 seurat.object <- integration.results[[1]]
-dims_use <- 75
+dims_use <- 50
 integration.name <- integration.results[[3]]
 
 resolutions <- seq(0.5, 1.5, by = 0.1) # Define the range of resolutions
 find_cluster_resolution(seurat.object, 
                         dims_use, resolutions, min.pct, logfc.threshold, integration.name,
-                        "Leiden", paste0(PATH_output_figures, "/UMAP_res_plots"))
+                        cluster_algo, paste0(PATH_output_figures, "/UMAP_res_plots"))
 
 if(!file.exists(paste0(PATH_output_figures, "/unnamed_plots"))){
   dir.create(paste0(PATH_output_figures, "/unnamed_plots"), recursive = TRUE)
@@ -296,10 +310,10 @@ if(!file.exists(paste0(PATH_output_figures, "/unnamed_plots"))){
   message(paste("Directory already exists: ", paste0(PATH_output_figures, "/unnamed_plots")))
 }
 
-res <- 0.9
+res <- 1.0
 
 seurat.object <- cluster_UMAP_seurat(seurat.object, res, dims_use, integration.name,
-                                     reduction.name, "Leiden", 
+                                     reduction.name, cluster_algo, 
                                      paste0(PATH_output_figures, "/unnamed_plots"))
 
 # Save seurat.object
@@ -332,8 +346,9 @@ text_content <- paste(
   "Clustering Algorithm: ", "Leiden", "\n",
   "UMAP Resolution: ", res, "\n",
   "UMAP Integration Name: ", integration.name, "\n",
-  "UMAP Reduction Name: ", reduction.name, "\n"
-)
+  "UMAP Reduction Name: ", reduction.name, "\n",
+  "Notes: TSP2, TSP14, TSP21, TSP25 as open source controls"
+  )
 
 writeLines(text_content, con = paste0(PATH_output, "/integration_parameters.txt"))
 
@@ -343,19 +358,87 @@ writeLines(text_content, con = paste0(PATH_output, "/integration_parameters.txt"
 #####
 #QC
 #####
-generate_QC_plots(seurat.object, res, 
-                  reduction.name, c("NG078", "NG075", "JP314", "TF061", "TF057", # Matched HDs
-                                    "NG064", "TF051", "TF052", "JP317", "TF064", "TF066", # CHUV NPM1-mut
-                                    "JP315", "TF058", "NG080", "TF063", "NG082", "NG083", "TF065", # SL NPM1-mut
-                                    "JP303", "JP304", "TF050", "TF047", "TF048", # CHUV KMT2Ar
-                                    "NG079", "JP318", "TF062", "TF059", "JP316", # SL KMT2Ar
-                                    "JP299", "NG070"), # PB-NPM1
+generate_QC_plots(seurat.object, res, reduction.name, c(head(sample_ids_IRIS, -1)), # PB-NPM1
                   paste0(PATH_output_figures, "/QC_plots"))
 print(paste("QC plots saved to: ", paste0(PATH_output_figures, "/QC_plots")))
 
 generate_bar_plots(seurat.object, paste0(PATH_output_figures, "/QC_plots"))
 print(paste("Barplots saved to: ", paste0(PATH_output_figures, "/QC_plots")))
 
+#####
+# Plot the UMAP with binned cohort colors
+#####
+kmt2ar.pb <- c("TF047", "TF048", "NG079", "JP318", "TF059")  # KMT2Ar PB samples
+kmt2ar.bm <- c("TF062", "JP316")
+kmt2ar.hd.pb <- c("JP303", "TF050", "JP304")
+
+npm1.pb <- c("NG064", "TF051", "TF052", "JP317", "TF064", "TF066", "JP315", "TF063", "NG083")
+npm1.bm <- c("TF058", "NG080", "NG082", "TF065")
+
+hd.pb <- c("NG037", "NG039", "NG042", "NG050", "NG078", "NG075", "JP314", "TF061", "TF057")
+
+bm.osc <- c("TSP2", "TSP14", "TSP21", "TSP25")
+
+all_expIDs <- unique(seurat.object@meta.data$expID)
+
+expID.colors <- rep(alpha("lightgray", 0.1), length(all_expIDs))
+names(expID.colors) <- all_expIDs
+
+expID.colors[kmt2ar.pb] <- rep(alpha("orange", 1.0))
+expID.colors[kmt2ar.bm] <- rep(alpha("red"), 1.0)
+expID.colors[kmt2ar.hd.pb] <- rep(alpha("green"), 1.0)
+expID.colors[npm1.pb] <- rep(alpha("cyan"), 1.0)
+expID.colors[npm1.bm] <- rep(alpha("darkblue"), 1.0)
+
+if(!file.exists(paste0(PATH_output_figures, "/QC_plots/cohort_plots"))){
+  dir.create(paste0(PATH_output_figures, "/QC_plots/cohort_plots"), recursive = TRUE)
+  message(paste("Directory created: ", paste0(PATH_output_figures, "/QC_plots/cohort_plots")))
+} else {
+  message(paste("Directory already exists: ", paste0(PATH_output_figures, "/cohort_plots")))
+}
+p <- DimPlot(seurat.object, group.by = "expID", cols = expID.colors)
+print(p)
+ggsave(filename = paste0(PATH_output_figures, "/QC_plots/cohort_plots/UMAP_cohort_overlap.png"),
+       height = 12, width = 14)
+
+all_cohorts <- list(kmt2ar.pb, kmt2ar.bm, kmt2ar.hd.pb,
+                    npm1.pb, npm1.bm,
+                    hd.pb, bm.osc)
+cohort_names <- c("kmt2ar_pb", "kmt2ar_bm", "kmt2ar_hd_pb",
+                  "npm1_pb", "npm1_bm",
+                  "hd_pb", "bm_osc")
+
+i = 1
+for(cohort in all_cohorts){
+  print(cohort)
+  sub.seurat <- subset(seurat.object, 
+                       subset = seurat.object@meta.data$expID %in% cohort)
+  Idents(sub.seurat) <- sub.seurat@meta.data$seurat_clusters
+  plot_df <- FetchData(sub.seurat, 
+                       vars = c("umap_1", "umap_2", "expID", "seurat_clusters"))
+  
+  centroids <- aggregate(cbind(umap_1, umap_2) ~ seurat_clusters, 
+                         data = plot_df, FUN = mean)
+  
+  p <- ggplot(plot_df, aes(x = umap_1, y = umap_2, color = expID)) +
+    geom_point(size = 0.5, alpha = 1.0) +
+    scale_color_manual(values = expID.colors) +
+    geom_text_repel(data = centroids,
+                    aes(x = umap_1, y = umap_2, label = seurat_clusters),
+                    color = "black", size = 4, fontface = "bold",
+                    box.padding = 0.4, point.padding = 0.4) +
+    # Set global axis limits
+    coord_cartesian(xlim = global_xlim, ylim = global_ylim) +
+    theme_minimal() +
+    labs(color = "Experiment ID") +
+    theme(
+      legend.position = "right"
+    )
+  print(p)
+  ggsave(filename = paste0(PATH_output_figures, "/QC_plots/cohort_plots/", cohort_names[[i]], "_UMAP.png"),
+         height = 8, width = 9)
+  i=i+1
+}
 #####
 #UMAP
 #####
