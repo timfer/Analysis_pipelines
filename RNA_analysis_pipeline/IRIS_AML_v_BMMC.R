@@ -113,7 +113,7 @@ mito_cutoff = 15
 min_nUMI = 2500
 
 #Set starting dimensions
-dims_use = 50
+dims_use = 150
 #common variables to regress are: "n_UMI", "percent.mt", "Phase"
 vars_to_regress <- c()
 
@@ -273,6 +273,9 @@ meta.data.BM.sub <- meta.data.BM[subsampled_cells, ]
 combined.meta.data <- rbind(meta.data, meta.data.BM)
 combined.matrix <- cbind(mtx, mtx.BM)
 
+saveRDS(combined.meta.data, file = paste0(PATH_output_objects, "/meta_data.rds"))
+saveRDS(combined.matrix, file = paste0(PATH_output_objects, "/matrix.rds"))
+
 #####
 #Batch integration with Seurat
 #####
@@ -295,7 +298,9 @@ integration.results <- seurat_integrate(
   paste0(PATH_output_figures, "/QC_plots"))
 
 seurat.object <- integration.results[[1]]
-dims_use <- 50
+saveRDS(file = paste0(PATH_output_objects, "/seurat_object_first.rds"),
+        seurat.object)
+dims_use <- 150
 integration.name <- integration.results[[3]]
 
 resolutions <- seq(0.5, 1.5, by = 0.1) # Define the range of resolutions

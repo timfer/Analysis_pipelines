@@ -146,7 +146,7 @@ seurat_integrate <- function(
                                 verbose = TRUE)
   print("<<<Data scaled>>>")
   
-  seurat.object_v5 <- RunPCA(seurat.object_v5, npcs = dims_use, verbose = FALSE)
+  seurat.object_v5 <- RunPCA(seurat.object_v5, npcs = dims_use, verbose = TRUE)
   integration.name <- "pca"
   
   # Ensure the output directory exists
@@ -167,15 +167,15 @@ seurat_integrate <- function(
   ggsave(filename = paste0(path, "/elbow_plot.png"), plot = p)
   print("<<<FVB, Scale, Regression, PCA done>>>")
   
-  if (!dir.exists(paste0(path, "/QC_plots/PCA_hmap"))) {
-    dir.create(paste0(path, "/QC_plots/PCA_hmap"), recursive = TRUE)
+  if (!dir.exists(paste0(path, "/PCA_hmap"))) {
+    dir.create(paste0(path, "/PCA_hmap"), recursive = TRUE)
   }
   
   # Loop over blocks of 10 PCs
-  for (i in 1:3) {
+  for (i in 1:14) {
     dims_to_plot <- (i * 10):((i + 1) * 10)
     fname <- sprintf("dim_%d-%d.png", dims_to_plot[1], dims_to_plot[length(dims_to_plot)])
-    fpath <- file.path(paste0(path, "/QC_plots/PCA_hmap/", fname))
+    fpath <- file.path(paste0(path, "/PCA_hmap/", fname))
     
     # Open a PNG device (8x12 inches at 300 dpi)
     png(
@@ -198,18 +198,16 @@ seurat_integrate <- function(
     dev.off()
   }
   
-  print("<<<PCA complete>>>")
-  
   # Score and plot JackStraw
   print("<<<Scoring and plotting JackStraw>>>")
   # max_dims <- min(dims_use, length(seurat.object_v5@reductions$pca))
 
-  seurat.object_v5 <- JackStraw(seurat.object_v5, reduction = "pca", dims=10:30,
+  seurat.object_v5 <- JackStraw(seurat.object_v5, reduction = "pca", dims=dims_use,
                                num.replicate = 100, verbose = TRUE)
   seurat.object_v5 <- ScoreJackStraw(seurat.object_v5, reduction = "pca",
-                                     dims = 10:30)
+                                     dims = 1:150)
   # Generate and save JackStrawPlot
-  p <- JackStrawPlot(seurat.object_v5, dims = 10:30) +
+  p <- JackStrawPlot(seurat.object_v5, dims = 1:150) +
     theme(
       plot.background = element_rect(fill = "white", color = NA),
       panel.background = element_rect(fill = "white", color = NA),
@@ -218,6 +216,16 @@ seurat_integrate <- function(
     )
   print(p)
   ggsave(filename = paste0(path, "/jackstraw_plot.png"), plot = p)
+  
+  p <- JackStrawPlot(seurat.object_v5, dims = 100:150) +
+    theme(
+      plot.background = element_rect(fill = "white", color = NA),
+      panel.background = element_rect(fill = "white", color = NA),
+      panel.grid.major = element_line(color = "grey80"),
+      panel.grid.minor = element_line(color = "grey90")
+    )
+  print(p)
+  ggsave(filename = paste0(path, "/jackstraw_plot_last_dims.png"), plot = p)
   
   #Compute Integrations
   # Ensure k.weight is smaller than the minimum number of cells
