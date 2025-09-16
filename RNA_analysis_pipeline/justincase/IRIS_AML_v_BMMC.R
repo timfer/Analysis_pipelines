@@ -79,7 +79,6 @@ for(path in l.result.paths){
 #Signatures
 ########
 #Path signatures
-"Change sig paths"
 PATH_signature <- "/home/tferrari/NAS2/iris/1_scripts/iris_scRNAseq/3_signatures_genes"
 #Signatures PBMCs
 signatures.PBMCs <- read.delim("/home/tferrari/updepla/users/tferrari/Experiments/RNA_Analysis/IRIS/AML_experiments/signatures/healthy_sig.txt",
@@ -330,7 +329,7 @@ p <- DimPlot(seurat.object_qc, reduction = "umap", label = FALSE,
 NoLegend()
 print(p)
 ggsave(
-  filename = paste0(PATH_output_figures, "/QC_plots", "/UMAP_exp_split.png"), 
+  filename = paste0(PATH_output_figures, "/QC_plots", "/UMAP_exp_split.pdf"), 
   plot = p,
   width = 16, 
   height = ceiling(length(unique(seurat.object_qc@meta.data$expID)) / 4) * 4, 
@@ -342,7 +341,7 @@ ggsave(
 p <- DimPlot(seurat.object_qc, reduction = "umap", pt.size = 0.5,
              group.by = "expID") + #, cols = cluster_colors) +
   print(p)
-ggsave(filename = paste0(PATH_output_figures, "/QC_plots", "/UMAP_exp_overlap.png"), plot = p,
+ggsave(filename = paste0(PATH_output_figures, "/QC_plots", "/UMAP_exp_overlap.pdf"), plot = p,
        width = 16, height = 8)
 
 ########
@@ -416,7 +415,7 @@ p <- wrap_plots(plots) + plot_annotation(title = "Feature z-scores") &
   theme(plot.title = element_text(hjust = 0.5, face = "bold")) & plot_layout(guides = 'collect')
 print(p)
 ggsave(filename = paste0(PATH_output_figures,
-                         "/ct_ftr_mincoff_", mincoff, ".png"),
+                         "/ct_ftr_mincoff_", mincoff, ".pdf"),
        plot = p, width = 32, height = 32)
 
 if(!file.exists(paste0(PATH_output_figures, "/QC_plots/UMAP_plots"))){
@@ -443,7 +442,7 @@ for(res in resolutions){
     labs(title = paste("UMAP clustering at resolution", res)) +
     theme(plot.title = element_text(hjust = 0.5, face = "bold"))
   print(plot)
-  ggsave(filename = paste0(PATH_output_figures, "/QC_plots/UMAP_plots", "/umap_res", gsub("\\.", "_", res), ".png"), 
+  ggsave(filename = paste0(PATH_output_figures, "/QC_plots/UMAP_plots", "/umap_res", gsub("\\.", "_", res), ".pdf"), 
          plot = plot, height = 8, width = 10)
 }
 
@@ -467,7 +466,7 @@ for(res in resolutions){
 #     #                       midpoint = 0, guide = "colourbar", aesthetics = "fill") +
 #     NoLegend()
 #   print(p)
-#   ggsave(filename = paste0(path, "/deg_res", gsub("\\.", "_", res), ".png"),
+#   ggsave(filename = paste0(path, "/deg_res", gsub("\\.", "_", res), ".pdf"),
 #          plot = p, width = 10, height = 18)
 # }
 
@@ -587,7 +586,7 @@ seurat.object <- JoinLayers(seurat.object) # Also necessary for DEG calculation
 #   theme(plot.title = element_text(hjust = 0.5, face = "bold")) & plot_layout(guides = 'collect')
 # print(p)
 # ggsave(filename = paste0(PATH_output_figures, "/unnamed_plots",
-#                          "/ct_ftr_mincoff_", mincoff, ".png"),
+#                          "/ct_ftr_mincoff_", mincoff, ".pdf"),
 #        plot = p, width = 32, height = 32)
 # 
 # saveRDS(file = paste0(PATH_output_objects, "/seurat_object_zscore.Rds"), seurat.object)
@@ -602,7 +601,7 @@ seurat.object <- JoinLayers(seurat.object) # Also necessary for DEG calculation
 l.markers <- calculate_and_plot_marker_DEGs(seurat.object, min.pct,
                                             logfc.threshold, 1000,
                                             paste0(PATH_output_figures,
-                                                   "/unnamed_plots/DEG_heatmap.png"))
+                                                   "/unnamed_plots/DEG_heatmap.pdf"))
 # Also save it to an excel file for easy reading
 wb <- createWorkbook() #Create new workbook
 addWorksheet(wb, "Unnamed_all_markers") #Add worksheet
@@ -659,7 +658,7 @@ if(!file.exists(paste0(PATH_output_figures, "/QC_plots/cohort_plots"))){
 }
 p <- DimPlot(seurat.object, group.by = "expID", cols = expID.colors)
 print(p)
-ggsave(filename = paste0(PATH_output_figures, "/QC_plots/cohort_plots/UMAP_cohort_overlap.png"),
+ggsave(filename = paste0(PATH_output_figures, "/QC_plots/cohort_plots/UMAP_cohort_overlap.pdf"),
        height = 12, width = 14)
 
 all_cohorts <- list(kmt2ar.pb, kmt2ar.bm, kmt2ar.hd.pb,
@@ -696,7 +695,7 @@ for(cohort in all_cohorts){
       legend.position = "right"
     )
   print(p)
-  ggsave(filename = paste0(PATH_output_figures, "/QC_plots/cohort_plots/", cohort_names[[i]], "_UMAP.png"),
+  ggsave(filename = paste0(PATH_output_figures, "/QC_plots/cohort_plots/", cohort_names[[i]], "_UMAP.pdf"),
          height = 8, width = 9)
   i=i+1
 }
@@ -745,7 +744,7 @@ print(paste("Final fully integrated seurat object saved to: ",
 ##########
 l.new.markers <- calculate_and_plot_marker_DEGs(seurat.object, min.pct, logfc.threshold, 
                                                 1000, paste0(PATH_output_figures,
-                                                             "/named_plots/named_DEG_heatmap.png"))
+                                                             "/named_plots/named_DEG_heatmap.pdf"))
 # new.markers.all <- l.new.markers[[1]]
 # topn <- l.new.markers[[2]]
 # bottomn <- l.new.markers[[3]]
@@ -831,7 +830,7 @@ for(clst in unique(l.new.markers[[1]]$cluster)){
   # print(p2)
   clst_name <- gsub(" ", "_", clst)
   ggsave(filename = paste0(PATH_output_figures, "/volcano_plots/", clst_name,
-                           "_volcano.png"), plot = p)
+                           "_volcano.pdf"), plot = p)
 }
 #########
 # Gene ontology
@@ -993,7 +992,7 @@ if(length(mrkrs.2.plot) < 6){
 ##########
 # Create signature dataframes and lists
 ##########
-l.new.markers <- readRDS(file = paste0(PATH_output_tables, "/l_markers.Rds"))
+l.new.markers <- readRDS(file = paste0(PATH_output_tables, "/l_markers.rds"))
 
 #Order and filter cluster DEGs
 l.new.markers[[2]] %>%

@@ -39,8 +39,9 @@ rename_clusters <- function(seurat.object, new.cluster.names, path){
   print(p)
   
   # Save plot with fixed width but dynamic height
-  ggsave(filename = paste0(path, "/UMAP_named.png"), plot = p, 
-         width = 16, height = final_height, limitsize = FALSE)
+  ggsave(filename = paste0(path, "/UMAP_named.pdf"), plot = p, 
+         width = 16, height = final_height, limitsize = FALSE, 
+         device = 'pdf', units = "in", useDingbats = FALSE)
   
   return(seurat.object)
 }
@@ -65,8 +66,9 @@ calculate_GO_terms <- function(top.DEGs, species, n_ftrs, path){
 
     p <- gene_ontology_heatmap(l_top5_GO, 0.025, n_ftrs)
     print(p)
-    ggsave(filename = paste0(path, "/GO_heatmap.png"),
-       plot = p$ggplot_heat_GO, width = 8, height = 12)
+    ggsave(filename = paste0(path, "/GO_heatmap.pdf"),
+       plot = p$ggplot_heat_GO, width = 8, height = 12, 
+       device = 'pdf', units = "in", useDingbats = FALSE)
 
     return(l_GO_results)
 }
@@ -111,7 +113,8 @@ plot_go_terms_for_cluster <- function(cluster_results, cluster_name,
         )
     
     # Save the plot
-    ggsave(paste0(path, "/GO_", cluster_name, ".png"), plot, width = 10, height = 8)
+    ggsave(paste0(path, "/GO_", cluster_name, ".pdf"), plot, width = 10, height = 8, 
+           device = 'pdf', units = "in", useDingbats = FALSE)
     
     return(plot)
 }
@@ -165,8 +168,9 @@ filter_GO_terms <- function(l_GO_results, keywords, n_ftrs) {
   
   p <- gene_ontology_heatmap(l_top5_GO, 0.025, n_ftrs)
   print(p)
-  #ggsave(filename = paste0(path, "/GO_heatmap.png"),
-  #       plot = p$ggplot_heat_GO, width = 8, height = 12)
+  #ggsave(filename = paste0(path, "/GO_heatmap.pdf"),
+  #       plot = p$ggplot_heat_GO, width = 8, height = 12, 
+  # device = 'pdf', units = "in", useDingbats = FALSE)
   
   return(list(l_filtered_GO, l_top5_GO))
 }

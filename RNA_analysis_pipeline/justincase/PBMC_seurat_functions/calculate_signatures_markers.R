@@ -54,7 +54,8 @@ calculate_cell_signatures <- function(signatures, seurat.object, ngenes, reducti
                                     gsub("_", " ", names(l.signature.PBMCs[i])))) &
       theme(plot.title = element_text(hjust = 0.5, face = "bold"))
     print(p)
-    ggsave(filename = paste0(path, "/ftr_plot_", i, ".png"), plot = p, width = 8, height = 8)
+    ggsave(filename = paste0(path, "/ftr_plot_", i, ".pdf"), plot = p, width = 8, 
+           height = 8, device = 'pdf', units = "in", useDingbats = FALSE)
     }
     
     return(seurat.object)
@@ -89,7 +90,7 @@ calculate_and_plot_marker_DEGs <- function(seurat.object, min.pct, logfc.thresho
     #                       midpoint = 0, guide = "colourbar", aesthetics = "fill") +
   print(p)
   ggsave(filename = path, plot = p, width = n_classes+8, 
-         height = n_classes+8)
+         height = n_classes+8, device = 'pdf', units = "in", useDingbats = FALSE)
 
   return(list(markers.all, topn, bottomn))
 }

@@ -154,7 +154,8 @@ seurat_integrate <- function(
       panel.grid.minor = element_line(color = "grey90")
     )
   print(p)
-  ggsave(filename = paste0(path, "/elbow_plot.png"), plot = p)
+  ggsave(filename = paste0(path, "/elbow_plot.pdf"), plot = p,
+         device = 'pdf', units = "in", useDingbats = FALSE)
   print("<<<FVB, Scale, Regression, PCA done>>>")
 
   if (!dir.exists(paste0(path, "/PCA_hmap"))) {
@@ -169,7 +170,7 @@ seurat_integrate <- function(
     end_pos = min(i + block_size - 1, dims_use)
     dims_to_plot = i:end_pos
     
-    fname <- sprintf("dim_%d-%d.png", dims_to_plot[1], dims_to_plot[length(dims_to_plot)])
+    fname <- sprintf("dim_%d-%d.pdf", dims_to_plot[1], dims_to_plot[length(dims_to_plot)])
     hmappath <- file.path(paste0(path, "/PCA_hmap/", fname))
     
     # Open a PNG device (8x12 inches at 300 dpi)
@@ -206,7 +207,7 @@ seurat_integrate <- function(
     end_pos = min(i + block_size - 1, dims_use)
     dims_to_plot = i:end_pos
     
-    fname <- sprintf("dim_%d-%d.png", dims_to_plot[1], dims_to_plot[length(dims_to_plot)])
+    fname <- sprintf("dim_%d-%d.pdf", dims_to_plot[1], dims_to_plot[length(dims_to_plot)])
     jspath <- file.path(paste0(path, "/jackstraw_plots/", fname))
     p <- JackStrawPlot(seurat.object_v5, dims = dims_to_plot) +
       theme(
@@ -216,7 +217,8 @@ seurat_integrate <- function(
         panel.grid.minor = element_line(color = "grey90")
       )
     print(p)
-    ggsave(filename = jspath, plot = p, width = 8, height = 8)
+    ggsave(filename = jspath, plot = p, width = 8, height = 8, 
+           device = 'pdf', units = "in", useDingbats = FALSE)
     
   }
 
@@ -282,11 +284,9 @@ cluster_UMAP_seurat <- function(seurat.object, resolution, dims,
   # colors <- brewer.pal(length(unique(seurat.object$expID)), "Set2") #Set colors
   p <- DimPlot(seurat.object, reduction = "umap", pt.size = 0.5,
                group.by = "expID")
-  print(p)
+    print(p)
   ggsave(filename = paste0(path, "/split_umaps", "/UMAP_exp_overlap.pdf"), plot = p,
          width = 16, height = 8, device = 'pdf', units = "in", useDingbats = FALSE)
-  ggsave(filename = paste0(path, "/split_umaps", "/UMAP_exp_overlap.png"), plot = p,
-         width = 16, height = 8)
   
   # Replot split by experiment now that dimensions and resolutions have been picked
   p <- DimPlot(seurat.object, reduction = "umap", label = FALSE,
@@ -299,17 +299,12 @@ cluster_UMAP_seurat <- function(seurat.object, resolution, dims,
     height = ceiling(length(unique(seurat.object_qc@meta.data$expID)) / 4) * 4, 
     limitsize = FALSE, device = 'pdf', units = "in", useDingbats = FALSE
   )
-  ggsave(
-    filename = paste0(path, "/split_umaps", "/UMAP_exp_split.png"), 
-    plot = p,
-    width = 16, 
-    height = ceiling(length(unique(seurat.object_qc@meta.data$expID)) / 4) * 4
-    )
   
   # Plot the UMAP
+  
   p <- DimPlot(seurat.object, label = TRUE) #, cols = umap_colors)
   print(p)
-  ggsave(filename = paste0(path, "/UMAP_unnamed.png"), plot = p,
+  ggsave(filename = paste0(path, "/UMAP_unnamed.pdf"), plot = p,
          height = 8, width = 10)
   
   #####
@@ -317,39 +312,33 @@ cluster_UMAP_seurat <- function(seurat.object, resolution, dims,
   #####
   #Plot cell type discriminating genes on feature plot
   ftrs <- c("CD3E", "CD8A", "CD4", "CD19", 
-            "CD14", "NCAM1", "NKG7", "TNF", 
-            "IL6", "IL1B", "GZMB", "IL2RA")
+           "CD14", "NCAM1", "NKG7", "TNF", 
+           "IL6", "IL1B", "GZMB", "IL2RA")
   p <- FeaturePlot(seurat.object, features = ftrs, reduction = "umap",
                    pt.size = 0.3, ncol = 4)
   print(p)
   ggsave(filename = paste0(path, "/std_ftr_genes.pdf"), plot = p, width = 32, 
          height = 24, device = 'pdf', units = "in", useDingbats = FALSE)
-  ggsave(filename = paste0(path, "/std_ftr_genes.pdf"), plot = p, width = 32, 
-         height = 24)
   
-  
+   
   aml_ftrs <- c("NPM1", "KMT2A", "FLT3", "DNMT3A",
                 "IDH1", "IDH2", "CEBPA", "SRSF2", 
                 "TET2", "NRAS", "KRAS", "CD34", 
                 "CD38", "KIT", "MKI67", "BCL2", 
                 "MPO"
-  )
+                )
   p <- FeaturePlot(seurat.object, features = aml_ftrs, reduction = "umap",
                    pt.size = 0.3, ncol = 4)
   print(p)
-  ggsave(filename = paste0(path, "/aml_ftr_genes.pdf"), plot = p, width = 32, height = 40, 
-         height = 24, device = 'pdf', units = "in", useDingbats = FALSE)
-  ggsave(filename = paste0(path, "/aml_ftr_genes.png"), plot = p, width = 32, height = 40)
+  ggsave(filename = paste0(path, "/aml_ftr_genes.pdf"), plot = p, width = 32, height = 40)
   
   mt_ff_ftrs <- c("MFN1", "MFN2", "OPA1",
                   "DNM1L", "MFF", "MIEF2", "MIEF1")
-  p <- FeaturePlot(seurat.object, features = mt_ff_ftrs, reduction = "umap",
+  p <- FeaturePlot(seurat.object, features = aml_ftrs, reduction = "umap",
                    pt.size = 0.3, ncol = 4)
   print(p)
   ggsave(filename = paste0(path, "/mt_ff_ftr_genes.pdf"), plot = p, width = 24, 
          height = 24, device = 'pdf', units = "in", useDingbats = FALSE)
-  ggsave(filename = paste0(path, "/mt_ff_ftr_genes.png"), plot = p, width = 24, 
-         height = 24)
   
   return(seurat.object)
 }
