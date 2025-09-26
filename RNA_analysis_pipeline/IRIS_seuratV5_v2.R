@@ -50,12 +50,12 @@ source(paste0(PATH_functions, "/create_annotation_dataframe.R"))
 userID <- "tferrari"
 analysisID <- "2024_PBMCs"
 #Samples to integrate
-sample_ids_IRIS <-    c("NG064", "TF051", "TF052", "JP317", "TF060", "TF064", "TF066", "JP315", "TF063", "NG083", # NPM1 PB
-                        "TF058", "NG080", "NG082", "TF065") # NPM1 BM
-  c("JP303", "TF050", "JP304", # KMT2Ar no blasts (healthy profile)
-                       "TF047", "TF048", "NG079", "JP318", "TF059", # KMT2Ar PB samples
-                       "TF062", "JP316")# , # "NG084", # KMT2Ar BM
-  # c("NG037", "NG039", "NG042", "NG050", "NG078", "NG075", "JP314", "TF061", "TF057") # HD PB controls
+sample_ids_IRIS <-    c("NG064", "TF051", "TF052", "JP317", "TF064", "TF066", "JP315", "TF060", "TF063", "NG083", # NPM1 PB
+                        "TF058", "NG080", "NG082", "TF065", # NPM1 BM
+                        "JP303", "TF050", "JP304", # KMT2Ar no blasts (healthy profile)
+                        "TF047", "TF048", "JP318", "TF059", "NG079", # KMT2Ar PB samples
+                        "TF062", "JP316", # "NG084", # KMT2Ar BM
+                        "NG037", "NG039", "NG042", "NG050", "NG078", "NG075", "JP314", "TF061", "TF057") # HD PB controls
 
 sample_ids <- c(sample_ids_IRIS)
 #Define paths
@@ -93,8 +93,8 @@ signatures.PBMCs.500degs <- read.delim(paste0(PATH_signature,"/healthy_sig_top50
                                        sep = "\t", header = TRUE)
 signatures.BMMCs <- read.delim(paste0(PATH_signature,"/NPM1_NG064_BMMC_TSP21_TSP25_sig.txt"),
                                sep = "\t", header = TRUE)
-signatures.kmt2ar <- read.delim(paste0(PATH_signature,"/kmt2ar_sig_top50.txt"),
-                                sep = "\t", header = TRUE)
+# signatures.kmt2ar <- read.delim(paste0(PATH_signature,"/kmt2ar_sig_top50.txt"),
+#                                 sep = "\t", header = TRUE)
 signatures.cibersortx.full <- read.delim(paste0(PATH_signature, "/AMLHierarchies_signatures/CIBERSORTx_scAML_Full_SignatureMatrix.txt"),
                                          sep = "\t", header = TRUE)
 signatures.cibersortx.mal <- read.delim(paste0(PATH_signature, "/AMLHierarchies_signatures/CIBERSORTx_scAML_Malignant_SignatureMatrix.txt"),
@@ -578,7 +578,7 @@ print(paste("Barplots saved to: ", paste0(PATH_output_figures, "/QC_plots")))
 #####
 seurat.object@meta.data <- seurat.object@meta.data %>%
   mutate(cohort = case_when(
-    expID %in%  c("NG064", "TF051", "TF052", "JP317", "TF060", "TF064", "TF066", "JP315", "TF063", "NG083", # NPM1 PB
+    expID %in% c("NG064", "TF051", "TF052", "JP317", "TF060", "TF064", "TF066", "JP315", "TF063", "NG083", # NPM1 PB
                   "TF058", "NG080", "NG082", "TF065") ~ "NPM1-mut",
     expID %in% c("JP303", "TF050", "JP304", # KMT2Ar no blasts (healthy profile)
                  "TF047", "TF048", "NG079", "JP318", "TF059", # KMT2Ar PB samples
@@ -586,6 +586,54 @@ seurat.object@meta.data <- seurat.object@meta.data %>%
     expID %in% c("NG078", "NG075", "JP314", "TF061", "TF057") ~ "Healthy",
     TRUE ~ NA_character_
   ))
+
+seurat.object@meta.data <- seurat.object@meta.data %>%
+  mutate(cohort_pp = case_when(
+    expID %in% c("NG064") ~ "NPM1-mut 1",
+    expID %in% c("TF051") ~ "NPM1-mut 2",
+    expID %in% c("TF052") ~ "NPM1-mut 3",
+    expID %in% c("JP317") ~ "NPM1-mut 4",
+    expID %in% c("TF064") ~ "NPM1-mut 5",
+    expID %in% c("TF066") ~ "NPM1-mut 6",
+    expID %in% c("JP315") ~ "NPM1-mut 7",
+    expID %in% c("TF060") ~ "NPM1-mut 7",
+    expID %in% c("TF063") ~ "NPM1-mut 8",
+    expID %in% c("NG083") ~ "NPM1-mut 9",# NPM1 PB
+    expID %in% c("TF058") ~ "NPM1-mut 7",
+    expID %in% c("NG080") ~ "NPM1-mut 7",
+    expID %in% c("NG082") ~ "NPM1-mut 8",
+    expID %in% c("TF065") ~ "NPM1-mut 9",
+    expID %in% c("JP303") ~ "KMT2Ar 1",
+    expID %in% c("TF050") ~ "KMT2Ar 1",
+    expID %in% c("JP304") ~ "KMT2Ar 1", # KMT2Ar no blasts (healthy profile)
+    expID %in% c("TF047") ~ "KMT2Ar 2",
+    expID %in% c("TF048") ~ "KMT2Ar 3",
+    expID %in% c("NG079") ~ "KMT2Ar 4",
+    expID %in% c("TF059") ~ "KMT2Ar 4",
+    expID %in% c("JP318") ~ "KMT2Ar 5", # KMT2Ar PB samples
+    expID %in% c("TF062") ~ "KMT2Ar 5", 
+    expID %in% c("JP316") ~ "KMT2Ar 4",
+    expID %in% c("NG078") ~ "Healthy 1",
+    expID %in% c("NG075") ~ "Healthy 2",
+    expID %in% c("JP314") ~ "Healthy 3",
+    expID %in% c("TF061") ~ "Healthy 4",
+    expID %in% c("TF057") ~ "Healthy 5",
+    TRUE ~ NA_character_
+  ))
+
+cohort_colors <- c(
+  "KMT2Ar"   = "purple",
+  "NPM1-mut" = "orange",
+  "Healthy"  = "green"
+)
+
+DimPlot(
+  object   = seurat.object,
+  group.by = "cohort",
+  cols     = cohort_colors
+) +
+  ggtitle("UMAP by Cohort") +
+  theme_minimal()
 
 seurat.object@meta.data <- seurat.object@meta.data %>% 
   mutate(location = case_when(
@@ -601,11 +649,11 @@ seurat.object@meta.data <- seurat.object@meta.data %>%
 seurat.object@meta.data$cohort_loc <- paste(seurat.object$cohort, seurat.object$location)
 
 cohort_loc_col <- rep(alpha("lightgray", 0.1), length(unique(seurat.object$cohort_loc)))
-cohort_loc_col["KMT2Ar peripheral_blood"] <- rep(alpha("orange", 1))
-cohort_loc_col["KMT2Ar bone_marrow"] <- rep(alpha("red"), 1.0)
-cohort_loc_col["NPM1-mut peripheral_blood"] <- rep(alpha("cyan"), 1)
-cohort_loc_col["NPM1-mut bone_marrow"] <- rep(alpha("darkblue"), 1.0)
-cohort_loc_col["Healthy peripheral_blood"] <- rep(alpha("green"), 1.0)
+cohort_loc_col["KMT2Ar peripheral_blood"] <- rep(alpha("purple", 1))
+cohort_loc_col["KMT2Ar bone_marrow"] <- rep(alpha("purple"), 1.0)
+cohort_loc_col["NPM1-mut peripheral_blood"] <- rep(alpha("orange"), 1)
+cohort_loc_col["NPM1-mut bone_marrow"] <- rep(alpha("orange"), 1.0)
+cohort_loc_col["Healthy peripheral_blood"] <- rep(alpha("darkgreen"), 1.0)
 
 p <- DimPlot(seurat.object, group.by = "cohort_loc", cols = cohort_loc_col)
 print(p)
@@ -705,6 +753,12 @@ print(paste("Class specific feature plots saved to ",
 
 #########
 # Generalized, unrefined annotation of clusters for gross image based classification
+#########
+seurat.object@meta.data <- seurat.object@meta.data %>%
+  mutate(cohort = case_when(
+    expID %in% c()
+  ))
+
 seurat.object@meta.data <- seurat.object@meta.data %>% 
   mutate(ct_gen = case_when(
     seurat_clusters %in% c("14", "20") ~ "Monocytes",
@@ -720,6 +774,20 @@ seurat.object@meta.data <- seurat.object@meta.data %>%
     seurat_clusters == "18" ~ "Neutrophil-like_cells",
     TRUE ~ NA_character_
   ))
+
+custom_colors <- c(
+  "B_cells" = "gray",
+  "CD4_lymphocytes" = "green",
+  "Effector_lymphocytes" = "darkgreen",
+  "Cycling_erythroid_cells" = "red",
+  "Cycling_myeloid_progenitors" = "blue",
+  "LSPC-like_cells" = "purple",
+  "Mono-like_cells" = "orange",
+  "Monocytes" = "cyan",
+  "Myeloblasts" = "yellow",
+  "Neutrophil-like_cells" = "pink",
+  "cDC-like_cells" = "lightblue"
+)
 
 seurat.object@meta.data <- seurat.object@meta.data %>% 
   mutate(primary_mut = case_when(
@@ -766,7 +834,7 @@ saveRDS(file = paste0(PATH_output_objects, "/seurat_object_metadata_gen.rds"), s
 print(paste("Final fully integrated seurat object saved to: ",
             paste0(PATH_output_objects, "/seurat_object_metadata.rds")))
 
-# seurat.object <- readRDS(paste0(PATH_output_objects, "/seurat_object_metadata.rds"))
+seurat.object <- readRDS(paste0(PATH_output_objects, "/seurat_object_metadata.rds"))
 
 ######
 #Cluster annotation
