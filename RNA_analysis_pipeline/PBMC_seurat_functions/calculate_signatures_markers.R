@@ -61,7 +61,7 @@ calculate_cell_signatures <- function(signatures, seurat.object, ngenes, reducti
 }
 
 calculate_and_plot_marker_DEGs <- function(seurat.object, min.pct, logfc.threshold,
-                                           num.mrkrs, path){
+                                           num.mrkrs, path, group){
   markers.all <- FindAllMarkers(seurat.object, only.pos = FALSE,
                                 min.pct = min.pct, logfc.threshold = logfc.threshold)
   

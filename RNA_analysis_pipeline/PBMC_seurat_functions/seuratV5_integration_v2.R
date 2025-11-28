@@ -192,6 +192,7 @@ seurat_integrate <- function(
     # Close the device, finalizing the PNG
     dev.off()
   }
+  
   print("<<<Scoring and plotting JackStraw>>>")
   seurat.object_v5 <- JackStraw(seurat.object_v5, reduction = "pca", dims=dims_use,
                                 num.replicate = 100, verbose = TRUE)
@@ -296,14 +297,14 @@ cluster_UMAP_seurat <- function(seurat.object, resolution, dims,
     filename = paste0(path, "/split_umaps", "/UMAP_exp_split.pdf"), 
     plot = p,
     width = 16, 
-    height = ceiling(length(unique(seurat.object_qc@meta.data$expID)) / 4) * 4, 
+    height = ceiling(length(unique(seurat.object@meta.data$expID)) / 4) * 4, 
     limitsize = FALSE, device = 'pdf', units = "in", useDingbats = FALSE
   )
   ggsave(
     filename = paste0(path, "/split_umaps", "/UMAP_exp_split.png"), 
     plot = p,
     width = 16, 
-    height = ceiling(length(unique(seurat.object_qc@meta.data$expID)) / 4) * 4
+    height = ceiling(length(unique(seurat.object@meta.data$expID)) / 4) * 4
     )
   
   # Plot the UMAP
@@ -327,6 +328,16 @@ cluster_UMAP_seurat <- function(seurat.object, resolution, dims,
   ggsave(filename = paste0(path, "/std_ftr_genes.pdf"), plot = p, width = 32, 
          height = 24)
   
+  mt_ff_ftrs <- c("MFN1", "MFN2", "OPA1",
+                  "DNM1L", "MFF", "MIEF2", "MIEF1")
+  p <- FeaturePlot(seurat.object, features = mt_ff_ftrs, reduction = "umap",
+                   pt.size = 0.3, ncol = 4)
+  print(p)
+  ggsave(filename = paste0(path, "/mt_ff_ftr_genes.pdf"), plot = p, width = 24, 
+         height = 24, device = 'pdf', units = "in", useDingbats = FALSE)
+  ggsave(filename = paste0(path, "/mt_ff_ftr_genes.png"), plot = p, width = 24, 
+         height = 24)
+  
   
   aml_ftrs <- c("NPM1", "KMT2A", "FLT3", "DNMT3A",
                 "IDH1", "IDH2", "CEBPA", "SRSF2", 
@@ -337,19 +348,9 @@ cluster_UMAP_seurat <- function(seurat.object, resolution, dims,
   p <- FeaturePlot(seurat.object, features = aml_ftrs, reduction = "umap",
                    pt.size = 0.3, ncol = 4)
   print(p)
-  ggsave(filename = paste0(path, "/aml_ftr_genes.pdf"), plot = p, width = 32, height = 40, 
-         height = 24, device = 'pdf', units = "in", useDingbats = FALSE)
+  # ggsave(filename = paste0(path, "/aml_ftr_genes.pdf"), plot = p, width = 32, height = 40, 
+  #        height = 24, device = 'pdf', units = "in", useDingbats = FALSE)
   ggsave(filename = paste0(path, "/aml_ftr_genes.png"), plot = p, width = 32, height = 40)
-  
-  mt_ff_ftrs <- c("MFN1", "MFN2", "OPA1",
-                  "DNM1L", "MFF", "MIEF2", "MIEF1")
-  p <- FeaturePlot(seurat.object, features = mt_ff_ftrs, reduction = "umap",
-                   pt.size = 0.3, ncol = 4)
-  print(p)
-  ggsave(filename = paste0(path, "/mt_ff_ftr_genes.pdf"), plot = p, width = 24, 
-         height = 24, device = 'pdf', units = "in", useDingbats = FALSE)
-  ggsave(filename = paste0(path, "/mt_ff_ftr_genes.png"), plot = p, width = 24, 
-         height = 24)
   
   return(seurat.object)
 }

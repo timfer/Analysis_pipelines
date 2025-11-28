@@ -50,13 +50,13 @@ source(paste0(PATH_functions, "/create_annotation_dataframe.R"))
 userID <- "tferrari"
 analysisID <- "2024_PBMCs"
 #Samples to integrate
-sample_ids_IRIS <-    c("NG064", "TF051", "TF052", "JP317", "TF064", "TF066", "JP315", "TF060", "TF063", "NG083", # NPM1 PB
-                        "TF058", "NG080", "NG082", "TF065", # NPM1 BM
-                        "JP303", "TF050", "JP304", # KMT2Ar no blasts (healthy profile)
-                        "TF047", "TF048", "JP318", "TF059", "NG079", # KMT2Ar PB samples
-                        "TF062", "JP316", # "NG084", # KMT2Ar BM
-                        "NG037", "NG039", "NG042", "NG050", "NG078", "NG075", "JP314", "TF061", "TF057") # HD PB controls
-
+sample_ids_IRIS <- c(
+  # "NG078", "NG075", "TF057", "JP314", "TF061", #HD-PB
+  "TF051", "TF052", "JP317", "TF060", "TF064", "TF066", "JP315", "TF063", "NG083",# NPM1-PB
+  "TF058", "NG080", "NG082", "TF065" # NPM1-BM
+  # "TF047", "TF048", "JP318", "TF059", "NG079", # KMT2Ar-PB
+  # "TF062", "JP316", "NG084"# KMT2Ar-BM
+)
 sample_ids <- c(sample_ids_IRIS)
 #Define paths
 PATH_input_IRIS_sequencing <- paste0("/home/tferrari/updepla/projects/iris/4_sequencing_analysis")
@@ -64,7 +64,7 @@ PATH_input_IRIS_imaging <- paste0("/home/tferrari/updepla/users/tferrari/Experim
 
 PATH_output <- paste0("/home/",userID,
                       "/updepla/users/", userID, 
-                      "/Experiments/RNA_analysis/IRIS/AML_experiments/results/AML_samples/KMT2Ar_v_NPM1_v_HD_PB-BM/harmony")
+                      "/Experiments/RNA_analysis/IRIS/AML_experiments/results/AML_samples/npm1-mut_only/harmony")
 PATH_output_figures <- paste0(PATH_output,"/plots")
 PATH_output_objects <- paste0(PATH_output,"/objects")
 PATH_output_tables <- paste0(PATH_output,"/tables")
@@ -112,13 +112,13 @@ species = "human"
 integrate_over = "expID" # Next should batch by "sampleID" and "cohort"
 
 #Threshing
-min_cells_percent = 0.005
+min_cells_percent = 0.025
 min_gene_number = 500
 mito_cutoff = 20
 min_nUMI = 2500
 
 #Set starting dimensions
-dims_use = 67
+dims_use = 70
 #common variables to regress are: "n_UMI", "percent.mt", "Phase"
 vars_to_regress <- c()
 
@@ -154,6 +154,27 @@ l.image.doublet.ROI.annotation <- annotate_doublets(PATH_input_IRIS_imaging,
 #LiquideDrop data
 l.meta.mtx <- create_matrix_meta_data(sample_ids_IRIS, 
                                       l.image.doublet.ROI.annotation)
+
+l.meta.mtx[[1]] <- l.meta.mtx[[1]] %>%
+  mutate(cohort = case_when(
+    expID %in% c("NG078", "NG075", "TF057", "JP314", "TF061") ~ "Healthy",
+    expID %in% c("TF051", "TF052", "JP317", "TF064", "TF066", "JP315", "TF060", "TF063", "NG083",# NPM1-PB
+                 "TF058", "NG080", "NG082", "TF065") ~ "NPM1-mut",
+    expID %in% c("TF047", "TF048", "JP318", "TF059", "NG079", # KMT2Ar-PB
+                "TF062", "JP316", "NG084") ~ "KMT2Ar",
+    TRUE ~ NA_character_
+  ))
+
+l.meta.mtx[[1]] <- l.meta.mtx[[1]] %>%
+  mutate(location = case_when(
+    expID %in% c("NG078", "NG075", "TF057", "JP314", "TF061",
+                 "TF051", "TF052", "JP317", "TF064", "TF066", "JP315", "TF060", "TF063", "NG083",
+                 "TF047", "TF048", "JP318", "TF059", "NG079") ~ "peripheral_blood",
+    expID %in% c("TF058", "NG080", "NG082", "TF065",
+                 "TF062", "JP316", "NG084") ~ "bone_marrow",
+    TRUE ~ NA_character_
+  ))
+
 #####
 #Batch integration with Seurat
 #####
@@ -171,7 +192,7 @@ integration.results <- seurat_integrate(
   min_cells_percent,
   min_gene_number,
   mito_cutoff,
-  dims_use,
+  100,
   vars_to_regress,
   split.layers,
   integrate.layers,
@@ -180,11 +201,24 @@ integration.results <- seurat_integrate(
 
 seurat.object <- integration.results[[1]]
 
-# saveRDS(file = paste0(PATH_output_objects, "/seurat_object_no_neighbors.rds"),
-        # seurat.object)
-seurat.object <- readRDS(file = paste0(PATH_output_objects, "/seurat_object_no_neighbors.rds"))
+seurat.object@meta.data <- seurat.object@meta.data %>%
+  mutate(fab = case_when(
+    expID %in% c("JP317", "TF063", "NG082", "JP303", "JP304", "TF050",
+                 "JP318", "TF062", "TF059", "NG079", "JP316", "NG084") ~ "m4-5",
+    expID %in% c("NG064", "NG083", "TF065", "TF047", "TF051") ~ "m1-2",
+    TRUE ~ NA_character_
+    ))
 
-dims_use <- 58
+# Mutations, binary
+seurat.object@meta.data <- seurat.object@meta.data %>% 
+  mutate()
+
+
+saveRDS(file = paste0(PATH_output_objects, "/seurat_object_no_neighbors.rds"),
+        seurat.object)
+# seurat.object <- readRDS(file = paste0(PATH_output_objects, "/seurat_object_no_neighbors.rds"))
+
+dims_use <- 66
 #Find neighbors
 seurat.object <- FindNeighbors(seurat.object, reduction = reduction, 
                                dims = 1:dims_use, verbose = TRUE)
@@ -192,6 +226,7 @@ print("<<<Neighbors found>>>")
 
 saveRDS(file = paste0(PATH_output_objects, "/seurat_object_neighbors.rds"),
         seurat.object)
+
 
 # seurat.object <- readRDS(file = paste0(PATH_output_objects, "/seurat_object_neighbors.rds"))
 
@@ -211,28 +246,28 @@ if(cluster_algo == "Leiden"){
 }
 
 #Plot the UMAPs split by experimental ID once so that we can appreciate expID splits, res unimportant
-seurat.object_qc <- FindClusters(seurat.object, resolution = 0.7, algorithm = algo,
+seurat.object <- FindClusters(seurat.object, resolution = 0.8, algorithm = algo,
                                  verbose = TRUE)
 #Run UMAP with 0.7 "standard" resolution, just for overview
-seurat.object_qc <- RunUMAP(seurat.object_qc, dims = 1:dims_use, 
+seurat.object <- RunUMAP(seurat.object, dims = 1:dims_use, 
                             reduction = reduction,  verbose = TRUE)
 
-p <- DimPlot(seurat.object_qc, reduction = "umap", label = FALSE,
+p <- DimPlot(seurat.object, reduction = "umap", label = FALSE,
              pt.size = 0.5, split.by = "expID", ncol = 4) + NoLegend()
 print(p)
 ggsave(
   filename = paste0(PATH_output_figures, "/QC_plots", "/UMAP_exp_split.png"), 
   plot = p,
   width = 16, 
-  height = ceiling(length(unique(seurat.object_qc@meta.data$expID)) / 4) * 4, 
+  height = ceiling(length(unique(seurat.object@meta.data$expID)) / 4) * 4, 
   limitsize = FALSE
 )
 
 #Plot UMAP with overlayed experiments to check for batch effects
 # colors <- brewer.pal(length(unique(seurat.object$expID)), "Set2") #Set colors
-p <- DimPlot(seurat.object_qc, reduction = "umap", pt.size = 0.5,
-             group.by = "expID") + #, cols = cluster_colors) +
-  print(p)
+p <- DimPlot(seurat.object, reduction = "umap", pt.size = 0.5,
+             group.by = "expID")# + #, cols = cluster_colors) +
+print(p)
 ggsave(filename = paste0(PATH_output_figures, "/QC_plots", "/UMAP_exp_overlap.png"), plot = p,
        width = 16, height = 8)
 
@@ -240,13 +275,13 @@ ggsave(filename = paste0(PATH_output_figures, "/QC_plots", "/UMAP_exp_overlap.pn
 # Signature z-score plotting
 ########
 # Temprorarily plot and calculate signature z-scores to decide on resolutions
-#Select top 500 DEGs per cluster and order in descending for avg_log2FC and plot
-seurat.object_qc <- JoinLayers(seurat.object_qc)
+# Select top 500 DEGs per cluster and order in descending for avg_log2FC and plot
+seurat.object <- JoinLayers(seurat.object)
 
 "All quoted below is necessary for the calculation of AddModuleScore, the precision of 
 which is not optimal"
 # Select appropriate number of DEGs for signature printing
-signatures.PBMCs.250degs %>%
+signatures.PBMCs.500degs %>%
   group_by(cluster) %>%
   arrange(desc(avg_log2FC), .by_group = TRUE) %>%
   dplyr::filter(avg_log2FC > 0.25) %>%
@@ -254,16 +289,55 @@ signatures.PBMCs.250degs %>%
   ungroup() -> top.PBMC.DEGs
 # Enforce underscore as spacer
 top.PBMC.DEGs$cluster <- gsub(" ", "_", top.PBMC.DEGs$cluster)
-top.PBMC.DEGs$cluster <- paste0(top.PBMC.DEGs$cluster, "_(PBMC_deg250)")
+top.PBMC.DEGs$cluster <- paste0(top.PBMC.DEGs$cluster, "_(PBMC_deg500)")
 
 gene_list <- list()
-for(score_name in unique(signatures.PBMCs.250degs$cluster)){
+for(score_name in unique(signatures.PBMCs.500degs$cluster)){
   print(score_name)
-  gene_list[[score_name]] <- signatures.PBMCs.250degs[signatures.PBMCs.250degs$cluster == (score_name), ]$gene
+  gene_list[[score_name]] <- signatures.PBMCs.500degs[signatures.PBMCs.500degs$cluster == (score_name), ]$gene
   seurat.object <- AddModuleScore(seurat.object,
                                   features = list(gene_list[[score_name]]),
                                   name = score_name)
 }
+names(seurat.object@meta.data)[(ncol(seurat.object@meta.data) - length(gene_list) + 1):ncol(seurat.object@meta.data)] <- names(gene_list)
+# names(seurat.object@meta.data)[(ncol(seurat.object@meta.data) - length(gene_list_ciber) + 1):ncol(seurat.object@meta.data)] <- paste0(names(gene_list_ciber), "_ciber1")
+
+# Remove underscores from gene names for plotting
+features_clean <- gsub("_", " ", names(gene_list))  # or replace "_" with " " for spaces
+
+mincoff <- c("q60")
+plots <- FeaturePlot(seurat.object, features = names(gene_list),
+                     reduction = "umap", cols = c("lightgrey", "deepskyblue", "blue"),
+                     min.cutoff = mincoff,
+                     max.cutoff = c("q99"),
+                     pt.size = 0.8, order = TRUE, ncol = 5)
+# Update the titles of the individual plots to the cleaned gene names
+plots <- lapply(seq_along(plots), function(i) {
+  plots[[i]] + ggplot2::labs(title = features_clean[i]) +
+    theme(
+      plot.title = element_text(size = 12, face = "bold", hjust = 0.5,
+                                margin = margin(b = 15)),
+      plot.margin = margin(20, 20, 30, 20)
+    )
+})
+p <- wrap_plots(plots) + plot_annotation(title = "Feature z-scores") &
+  theme(plot.title = element_text(hjust = 0.5, face = "bold")) & plot_layout(guides = 'collect')
+print(p)
+# ggsave(filename = paste0(PATH_output_figures, "/z-score_plots",
+#                          "/pbmc_z-score_mincoff_", mincoff, ".pdf"),
+#        plot = p, width = 40, height = 32, device = 'pdf', units = "in", useDingbats = FALSE)
+ggsave(filename = paste0(PATH_output_figures, "/z-score_plots",
+                         "/pbmc_z-score_mincoff_", mincoff, ".png"),
+       plot = p, width = 40, height = 32)
+
+# vanGalen.gene.list <- list()
+# vanGalen.gene.list[["HSC-like"]] <- list("NPTX2", "H1F0", "EMP1", "MEIS1","CALCRL",
+#                                          "TPSD1", "TPT1", "CRHBP", "CLNK", "TSC22D1",
+#                                          "DST", "NRIP1", "ABCB1", "GABRA4", "ZBTB20",
+#                                          "ABCA9", "TPSB2", "KMT2A", "FAM30A", "MEF2C",
+#                                          "TMEM74", "PDZRN4", "ST3GAL1", "XIRP2", "RBPMS",
+#                                          "TMEM25", "C20orf203", "GNG11", "SLC6A13", "HOPX"
+# )
 
 signatures.BMMCs %>%
   group_by(cluster) %>%
@@ -281,22 +355,36 @@ for(score_name in unique(top.BMMC.DEGs$cluster)){
   seurat.object <- AddModuleScore(seurat.object, features = list(gene_list[[score_name]]),
                                   name = score_name)
 }
+names(seurat.object@meta.data)[(ncol(seurat.object@meta.data) - length(gene_list) + 1):ncol(seurat.object@meta.data)] <- names(gene_list)
+# names(seurat.object@meta.data)[(ncol(seurat.object@meta.data) - length(gene_list_ciber) + 1):ncol(seurat.object@meta.data)] <- paste0(names(gene_list_ciber), "_ciber1")
 
-signatures.kmt2ar %>%
-  group_by(cluster) %>%
-  arrange(desc(avg_log2FC), .by_group = TRUE) %>%
-  dplyr::filter(avg_log2FC > 0.25) %>%
-  slice_head(n = 100) %>%
-  ungroup() -> top.kmt2ar.DEGs
-# Add suffix for overlapping signatures
-top.kmt2ar.DEGs$cluster <- paste0(top.kmt2ar.DEGs$cluster, "_(gen_KMT2Ar)")
-gene_list <- list()
-for(score_name in unique(top.kmt2ar.DEGs$cluster)){
-  print(score_name)
-  gene_list[[score_name]] <- top.kmt2ar.DEGs[top.kmt2ar.DEGs$cluster == (score_name), ]$gene
-  seurat.object <- AddModuleScore(seurat.object, features = list(gene_list[[score_name]]),
-                                     name = score_name)
-}
+# Remove underscores from gene names for plotting
+features_clean <- gsub("_", " ", names(gene_list))  # or replace "_" with " " for spaces
+
+mincoff <- c("q60")
+plots <- FeaturePlot(seurat.object, features = names(gene_list),
+                     reduction = "umap", cols = c("lightgrey", "deepskyblue", "blue"),
+                     min.cutoff = mincoff,
+                     max.cutoff = c("q99"),
+                     pt.size = 0.8, order = TRUE, ncol = 5)
+# Update the titles of the individual plots to the cleaned gene names
+plots <- lapply(seq_along(plots), function(i) {
+  plots[[i]] + ggplot2::labs(title = features_clean[i]) +
+    theme(
+      plot.title = element_text(size = 12, face = "bold", hjust = 0.5,
+                                margin = margin(b = 15)),
+      plot.margin = margin(20, 20, 30, 20)
+    )
+})
+p <- wrap_plots(plots) + plot_annotation(title = "Feature z-scores") &
+  theme(plot.title = element_text(hjust = 0.5, face = "bold")) & plot_layout(guides = 'collect')
+print(p)
+# ggsave(filename = paste0(PATH_output_figures, "/z-score_plots",
+#                          "/bmmc_z-score_mincoff_", mincoff, ".pdf"),
+#        plot = p, width = 40, height = 32, device = 'pdf', units = "in", useDingbats = FALSE)
+ggsave(filename = paste0(PATH_output_figures, "/z-score_plots",
+                         "/bmmc_z-score_mincoff_", mincoff, ".png"),
+       plot = p, width = 40, height = 32)
 
 # Intersect the genes mapped in the seurat object and those in the cibersortx signature dframe
 seurat_genes <- rownames(seurat.object)
@@ -305,7 +393,7 @@ common_genes <- intersect(seurat_genes, ciber_genes)
 # Filter the signatures dataframe to only include common genes
 signatures.cibersortx.filtered <- signatures.cibersortx.full[signatures.cibersortx.full$NAME %in% common_genes, ]
 # Subset the Seurat object to only include common genes
-seurat.object.filtered <- subset(seurat.object, features = common_genes)
+# seurat.object <- subset(seurat.object, features = common_genes)
 
 # Extract and order Cibersortx signatures
 gene_list_ciber <- lapply(colnames(signatures.cibersortx.filtered)[-1], function(col){
@@ -323,15 +411,16 @@ names(gene_list_ciber) <- colnames(signatures.cibersortx.filtered)[-1]
 
 for(score_name in names(gene_list_ciber)){
   print(score_name)
-  seurat.object.filtered <- AddModuleScore(seurat.object.filtered, features = list(gene_list_ciber[[score_name]]),
+  seurat.object <- AddModuleScore(seurat.object, features = list(gene_list_ciber[[score_name]]),
                                            name = paste0(score_name, "_ciber"),
                                            ctrl = 50)
 }
-saveRDS(seurat.object.filtered, file = paste0(PATH_output_objects, "/seurat_filtered_cibersortx.rds"))
+saveRDS(seurat.object, file = paste0(PATH_output_objects, "/seurat_filtered_cibersortx.rds"))
 # seurat.object <- readRDS(file = paste0(PATH_output_objects, "/seurat_filtered_cibersortx.rds"))
 
 # Remove the "1" suffix from the new score columns in meta.data
 # Renaming columns in the meta.data slot
+gene_list <- gene_list_ciber
 names(seurat.object@meta.data)[(ncol(seurat.object@meta.data) - length(gene_list) + 1):ncol(seurat.object@meta.data)] <- names(gene_list)
 # names(seurat.object@meta.data)[(ncol(seurat.object@meta.data) - length(gene_list_ciber) + 1):ncol(seurat.object@meta.data)] <- paste0(names(gene_list_ciber), "_ciber1")
 
@@ -343,7 +432,7 @@ plots <- FeaturePlot(seurat.object, features = names(gene_list),
                      reduction = "umap", cols = c("lightgrey", "deepskyblue", "blue"),
                      min.cutoff = mincoff,
                      max.cutoff = c("q99"),
-                     pt.size = 0.8, order = TRUE, ncol = 5) 
+                     pt.size = 0.8, order = TRUE, ncol = 5)
 # Update the titles of the individual plots to the cleaned gene names
 plots <- lapply(seq_along(plots), function(i) {
   plots[[i]] + ggplot2::labs(title = features_clean[i]) +
@@ -356,12 +445,18 @@ plots <- lapply(seq_along(plots), function(i) {
 p <- wrap_plots(plots) + plot_annotation(title = "Feature z-scores") &
   theme(plot.title = element_text(hjust = 0.5, face = "bold")) & plot_layout(guides = 'collect')
 print(p)
-ggsave(filename = paste0(PATH_output_figures, "/z-score_plots",
-                         "/ct_z-score_mincoff_", mincoff, ".pdf"),
-       plot = p, width = 40, height = 32, device = 'pdf', units = "in", useDingbats = FALSE)
+# ggsave(filename = paste0(PATH_output_figures, "/z-score_plots",
+#                          "/ct_z-score_mincoff_", mincoff, ".pdf"),
+#        plot = p, width = 40, height = 32, device = 'pdf', units = "in", useDingbats = FALSE)
 ggsave(filename = paste0(PATH_output_figures, "/z-score_plots",
                          "/c_z-score_mincoff_", mincoff, ".png"),
        plot = p, width = 40, height = 32)
+
+# saveRDS(file = paste0(PATH_output_objects, "/seurat_object_zscore.Rds"), seurat.object)
+print(paste("seurat object with Z-scores in @meta_data saved to: ",
+            paste0(PATH_output_objects, "/seurat_object_zscore.Rds")))
+
+# seurat.object <- readRDS(file = paste0(PATH_output_objects, "/seurat_object_zscore.Rds"))
 
 if(!file.exists(paste0(PATH_output_figures, "/QC_plots/UMAP_plots"))){
   dir.create(paste0(PATH_output_figures, "/QC_plots/UMAP_plots"), recursive = TRUE)
@@ -373,7 +468,7 @@ if(!file.exists(paste0(PATH_output_figures, "/QC_plots/UMAP_plots"))){
 #######
 # UMAP resolution plotting for adequate cluster discrimination
 ######
-resolutions <- seq(0.5, 3.0, by = 0.1) # Define the range of resolutions
+resolutions <- seq(0.5, 2.5, by = 0.1) # Define the range of resolutions
 for(res in resolutions){
   # Run clustering with different resolutions
   seurat.object_umapqc <- FindClusters(seurat.object, resolution = res, algorithm = algo,
@@ -422,7 +517,7 @@ if(!file.exists(paste0(PATH_output_figures, "/unnamed_plots"))){
   message(paste("Directory already exists: ", paste0(PATH_output_figures, "/unnamed_plots")))
 }
 
-res <- 2.6
+res <- 1.1
 
 seurat.object <- cluster_UMAP_seurat(seurat.object, res, dims_use,
                                      reduction, cluster_algo, paste0(PATH_output_figures, "/unnamed_plots"))
@@ -454,93 +549,6 @@ text_content <- paste(
 writeLines(text_content, con = paste0(PATH_output, "/integration_parameters.txt"))
 
 #####
-# Signature plotting signatures
-#####
-#Select top 500 DEGs per cluster and order in descending for avg_log2FC and plot
-seurat.object <- JoinLayers(seurat.object) # Also necessary for DEG calculation
-
-#Save seurat.object
-saveRDS(file = paste0(PATH_output_objects, "/seurat_object_integrated.rds"),
-        seurat.object)
-
-print(paste("Fully integrated seurat object saved to: ",
-            paste0(PATH_output_objects, "/seurat_object_integrated.rds")))
-
-seurat.object <- readRDS(file = paste0(PATH_output_objects, "/seurat_object_integrated.rds"))
-
-# "All quoted below is necessary for the calculation of AddModuleScore, the precision of 
-# which is not optimal"
-# # Select appropriate number of DEGs for signature printing
-# signatures.PBMCs %>%
-#   group_by(cluster) %>%
-#   arrange(desc(avg_log2FC), .by_group = TRUE) %>%
-#   dplyr::filter(avg_log2FC > 0.25) %>%
-#   slice_head(n = 100) %>%
-#   ungroup() -> top.PBMC.DEGs
-# # Enforce underscore as spacer
-# top.PBMC.DEGs$cluster <- gsub(" ", "_", top.PBMC.DEGs$cluster)
-# top.PBMC.DEGs$cluster <- paste0(top.PBMC.DEGs$cluster, "_(PBMC)")
-# 
-# signatures.BMMCs %>%
-#   group_by(cluster) %>%
-#   arrange(desc(avg_log2FC), .by_group = TRUE) %>%
-#   dplyr::filter(avg_log2FC > 0.25) %>%
-#   slice_head(n = 100) %>%
-#   ungroup() -> top.BMMC.DEGs
-# # Add suffix for overlapping signatures
-# top.BMMC.DEGs$cluster <- paste0(top.BMMC.DEGs$cluster, "_(BMMC)")
-# 
-# gene_list <- list()
-# for(score_name in unique(top.PBMC.DEGs$cluster)){
-#   print(score_name)
-#   gene_list[[score_name]] <- top.PBMC.DEGs[top.PBMC.DEGs$cluster == (score_name), ]$gene
-#   seurat.object <- AddModuleScore(seurat.object,
-#                                   features = list(gene_list[[score_name]]),
-#                                   name = score_name)
-# }
-# for(score_name in unique(top.BMMC.DEGs$cluster)){
-#   print(score_name)
-#   gene_list[[score_name]] <- top.BMMC.DEGs[top.BMMC.DEGs$cluster == (score_name), ]$gene
-#   seurat.object <- AddModuleScore(seurat.object, features = list(gene_list[[score_name]]),
-#                                   name = score_name)
-# }
-# 
-# # Remove the "1" suffix from the new score columns in meta.data
-# # Renaming columns in the meta.data slot
-# names(seurat.object@meta.data)[(ncol(seurat.object@meta.data) - length(gene_list) + 1):ncol(seurat.object@meta.data)] <- names(gene_list)
-# 
-# # Remove underscores from gene names for plotting
-# features_clean <- gsub("_", " ", names(gene_list))  # or replace "_" with " " for spaces
-# 
-# mincoff <- c("q60")
-# plots <- FeaturePlot(seurat.object, features = names(gene_list),
-#                      reduction = "umap", cols = c("lightgrey", "deepskyblue", "blue"),
-#                      min.cutoff = mincoff,
-#                      max.cutoff = c("q99"),
-#                      pt.size = 0.8, order = TRUE) 
-# # Update the titles of the individual plots to the cleaned gene names
-# plots <- lapply(seq_along(plots), function(i) {
-#   plots[[i]] + ggplot2::labs(title = features_clean[i]) +
-#     theme(
-#       plot.title = element_text(size = 12, face = "bold", hjust = 0.5,
-#                                 margin = margin(b = 15)),
-#       plot.margin = margin(20, 20, 30, 20)
-#     )
-# })
-# p <- wrap_plots(plots) + plot_annotation(title = "Feature z-scores") &
-#   theme(plot.title = element_text(hjust = 0.5, face = "bold")) & plot_layout(guides = 'collect')
-# print(p)
-# ggsave(filename = paste0(PATH_output_figures, "/unnamed_plots",
-#                          "/ct_ftr_mincoff_", mincoff, ".png"),
-#        plot = p, width = 32, height = 32)
-# 
-# saveRDS(file = paste0(PATH_output_objects, "/seurat_object_zscore.Rds"), seurat.object)
-# print(paste("seurat object with Z-scores in @meta_data saved to: ",
-#             paste0(PATH_output_objects, "/seurat_object_zscore.Rds")))
-
-# seurat.object <- readRDS(file = paste0(PATH_output_objects, "/seurat_object_zscore.Rds"))
-
-#####
 #DEGs general
 #####
 l.markers <- calculate_and_plot_marker_DEGs(seurat.object, min.pct,
@@ -558,7 +566,7 @@ writeData(wb, "Unnamed_bottom_markers", l.markers[[3]]) #Write data
 saveWorkbook(wb, paste0(PATH_output_tables, "/unnamed_markers.xlsx")) #Save workbook
 
 saveRDS(l.markers, file = paste0(PATH_output_tables, "/l_markers.rds"))
-l.markers <- readRDS(paste0(PATH_output_tables, "/l_markers.rds"))
+# l.markers <- readRDS(paste0(PATH_output_tables, "/l_markers.rds"))
 
 #############################
 #Plotting
@@ -566,6 +574,12 @@ l.markers <- readRDS(paste0(PATH_output_tables, "/l_markers.rds"))
 #####
 #QC
 #####
+cohort_colors <- c(
+  "KMT2Ar"   = "purple",
+  "NPM1-mut" = "orange",
+  "Healthy"  = "darkgreen"
+)
+
 generate_QC_plots(seurat.object, res, "umap", c(head(sample_ids_IRIS, -1)), 
                   paste0(PATH_output_figures, "/QC_plots"))
 print(paste("QC plots saved to: ", paste0(PATH_output_figures, "/QC_plots")))
@@ -576,75 +590,111 @@ print(paste("Barplots saved to: ", paste0(PATH_output_figures, "/QC_plots")))
 #####
 # Plot the UMAP with binned cohort colors
 #####
-seurat.object@meta.data <- seurat.object@meta.data %>%
-  mutate(cohort = case_when(
-    expID %in% c("NG064", "TF051", "TF052", "JP317", "TF060", "TF064", "TF066", "JP315", "TF063", "NG083", # NPM1 PB
-                  "TF058", "NG080", "NG082", "TF065") ~ "NPM1-mut",
-    expID %in% c("JP303", "TF050", "JP304", # KMT2Ar no blasts (healthy profile)
-                 "TF047", "TF048", "NG079", "JP318", "TF059", # KMT2Ar PB samples
-                 "TF062", "JP316") ~ "KMT2Ar",
-    expID %in% c("NG078", "NG075", "JP314", "TF061", "TF057") ~ "Healthy",
+
+#########
+# Generalized, unrefined annotation of clusters for gross image based classification
+#########
+seurat.object@meta.data <- seurat.object@meta.data %>% 
+  mutate(ct_gen = case_when(
+    seurat_clusters == "4" & !cohort == "Healthy" ~ "Mono-like_precursors",
+    seurat_clusters == "4" & cohort == "Healthy" ~ "CD14+_Monocytes",
+    seurat_clusters == "13" ~ "CD16+_Non-Classical_Monocytes",
+    seurat_clusters == "11" ~ "CD19+_B_cells",
+    seurat_clusters == "16" ~ "Plasma_cells",
+    seurat_clusters == "5" ~ "Cycling_granulocyte-monocyte-like_progenitors",
+    seurat_clusters == "9" ~ "Cycling_erythroid_progenitors",
+    seurat_clusters == "10" ~ "Granulocytic-Neutrophilic-like_precursors",
+    seurat_clusters == "6" ~ "Cytotoxic_lymphocytes",
+    seurat_clusters == "2" ~ "CD4+_lymphocytes",
+    seurat_clusters == "3" ~ "Pro-Mono-like_precursors",
+    seurat_clusters == "12" ~ "Myeloblasts",
+    seurat_clusters == "1" ~ "Pluripotent_LSPC-like_blasts",
+    seurat_clusters == "8" ~ "Multipotent_LSPC-like_blasts_Lymphoid_bias",
+    seurat_clusters == "14" ~ "Multipotent_LSPC-like_blasts_Mk-Ery_bias",
+    seurat_clusters == "7" ~ "Leukemic_progenitor_cell_Lymphoid_bias",
+    seurat_clusters == "15" ~ "Monocyte-derived_Dentritic_cell",
     TRUE ~ NA_character_
   ))
 
-seurat.object@meta.data <- seurat.object@meta.data %>%
-  mutate(cohort_pp = case_when(
-    expID %in% c("NG064") ~ "NPM1-mut 1",
-    expID %in% c("TF051") ~ "NPM1-mut 2",
-    expID %in% c("TF052") ~ "NPM1-mut 3",
-    expID %in% c("JP317") ~ "NPM1-mut 4",
-    expID %in% c("TF064") ~ "NPM1-mut 5",
-    expID %in% c("TF066") ~ "NPM1-mut 6",
-    expID %in% c("JP315") ~ "NPM1-mut 7",
-    expID %in% c("TF060") ~ "NPM1-mut 7",
-    expID %in% c("TF063") ~ "NPM1-mut 8",
-    expID %in% c("NG083") ~ "NPM1-mut 9",# NPM1 PB
-    expID %in% c("TF058") ~ "NPM1-mut 7",
-    expID %in% c("NG080") ~ "NPM1-mut 7",
-    expID %in% c("NG082") ~ "NPM1-mut 8",
-    expID %in% c("TF065") ~ "NPM1-mut 9",
-    expID %in% c("JP303") ~ "KMT2Ar 1",
-    expID %in% c("TF050") ~ "KMT2Ar 1",
-    expID %in% c("JP304") ~ "KMT2Ar 1", # KMT2Ar no blasts (healthy profile)
-    expID %in% c("TF047") ~ "KMT2Ar 2",
-    expID %in% c("TF048") ~ "KMT2Ar 3",
-    expID %in% c("NG079") ~ "KMT2Ar 4",
-    expID %in% c("TF059") ~ "KMT2Ar 4",
-    expID %in% c("JP318") ~ "KMT2Ar 5", # KMT2Ar PB samples
-    expID %in% c("TF062") ~ "KMT2Ar 5", 
-    expID %in% c("JP316") ~ "KMT2Ar 4",
-    expID %in% c("NG078") ~ "Healthy 1",
-    expID %in% c("NG075") ~ "Healthy 2",
-    expID %in% c("JP314") ~ "Healthy 3",
-    expID %in% c("TF061") ~ "Healthy 4",
-    expID %in% c("TF057") ~ "Healthy 5",
-    TRUE ~ NA_character_
-  ))
+# seurat.object@meta.data[["cohort"]] <- "NPM1-mut"
 
-cohort_colors <- c(
-  "KMT2Ar"   = "purple",
-  "NPM1-mut" = "orange",
-  "Healthy"  = "green"
-)
+# Combine mutation and location for plotting
+seurat.object@meta.data$pr_mut_loc <- paste(seurat.object$primary_mut, seurat.object$location)
+
+# Graphs to do: updepla_code, provenance, primary_mut, pr_mut_loc
+p <- DimPlot(seurat.object, split.by = c("primary_mut"), ncol = 3) +
+  theme(strip.text = element_text(size = 6))
+print(p)
+ggsave(filename = paste0(PATH_output_figures, '/unnamed_plots/split_umaps/umap_provenance.png'),
+       plot = p, width = 24, 
+       height = ceiling(length(unique(seurat.object@meta.data$updepla_code))/3)*4)
+
+ggsave(filename = paste0(PATH_output_figures, '/unnamed_plots/split_umaps/umap_provenance.pdf'),
+       plot = p, width = 24,
+       height = ceiling(length(unique(seurat.object@meta.data$updepla_code))/3)*4,
+       device = 'pdf', units = "in", useDingbats = FALSE)
+
+# Bubble plots of ID by location by ct_gen
+meta_df <- seurat.object@meta.data
+
+# Summarize cell counts per group
+counts_df <- meta_df %>%
+  group_by(location, cohort, ct_gen) %>%
+  summarise(cell_count = n(), .groups = "drop")
+
+# Calculate total cell count per (cohort, cohort_pp, location) for percent calculation
+counts_df <- counts_df %>%
+  group_by(cohort, location) %>%
+  mutate(
+    total_count = sum(cell_count),
+    percent = (cell_count / total_count) * 100
+  ) %>%
+  ungroup()
+
+# Create ordered y_axis factor
+counts_df <- counts_df %>%
+  mutate(
+    cohort = factor(cohort, levels = c("Healthy", "NPM1-mut", "KMT2Ar")),
+    location = factor(location, levels = c("peripheral_blood", "bone_marrow")),
+    y_axis = factor(paste(cohort, location, sep = "_"),
+                    levels = unique(paste(cohort,  location, sep = "_")))
+  ) %>%
+  arrange(cohort, location)
+
+# Bubble plot with size as percent
+p <- ggplot(counts_df, aes(x = ct_gen, y = y_axis)) +
+  geom_point(aes(size = percent, color = cohort), alpha = 0.7) +
+  scale_size_continuous(
+    name = "Percent of group (%)",
+    range = c(1, 10)#,
+    # labels = label_percent(scale = 1)
+  ) +
+  # scale_color_manual(values = cohort_colors) +
+  labs(
+    x = "Cell Type (ct_gen)",
+    y = "Cohort / Location",
+    color = "Cohort"
+  ) +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 7),
+        axis.text.x = element_text(angle = 45, hjust = 1))
+print(p)
+ggsave(filename = paste0(PATH_output_figures, '/bubble_plots/cohort_sample_bb.png'),
+       plot = p, height = 12, width = 12)
+
+saveRDS(file = paste0(PATH_output_objects, "/seurat_object_metadata_gen.rds"), seurat.object)
+print(paste("Final fully integrated seurat object saved to: ",
+            paste0(PATH_output_objects, "/seurat_object_metadata.rds")))
+
+# seurat.object <- readRDS(paste0(PATH_output_objects, "/seurat_object_metadata_gen.rds"))
 
 DimPlot(
   object   = seurat.object,
   group.by = "cohort",
-  cols     = cohort_colors
+  # cols     = cohort_colors
 ) +
   ggtitle("UMAP by Cohort") +
   theme_minimal()
-
-seurat.object@meta.data <- seurat.object@meta.data %>% 
-  mutate(location = case_when(
-    expID %in% c("TF058", "NG080", "NG082", "TF065", "JP316", "TF062") ~ "bone_marrow",
-    expID %in% c("NG064", "TF051", "TF052", "JP317", "TF064", 
-                 "TF066", "JP315", "TF063", "NG083",
-                 "NG078", "NG075", "JP314", "TF061", "TF057",
-                 "JP303", "TF050", "JP304",
-                 "TF047", "TF048", "NG079", "JP318", "TF059") ~ "peripheral_blood",
-    TRUE ~ NA_character_
-  ))
 
 seurat.object@meta.data$cohort_loc <- paste(seurat.object$cohort, seurat.object$location)
 
@@ -746,96 +796,176 @@ print(paste("Class specific feature plots saved to ",
             paste0(PATH_output_figures, "/feature_plots")))
 
 ########
+# DEGs per cell type per cohort
+#######
+library(tibble)
+library(pheatmap)
+
+# Add combined group label to meta.data
+so <- seurat.object
+so$group <- paste(so$ct_gen, so$cohort, sep = "__")
+
+# Find markers for each combined group (cell type + cohort)
+markers <- FindAllMarkers(so, group.by = "group", only.pos = FALSE,
+                          logfc.threshold = 0.25, min.pct = 0.1)
+
+ct.mrkrs <- FindAllMarkers(so, group.by = "ct_gen", only.pos = TRUE, 
+                           logfc.threshold = 0.25, min.pct = 0.1)
+
+cohort.mrkrs <- FindAllMarkers(so, group.by = "cohort", only.pos = FALSE,
+                               logfc.threshold = 0.25, min.pct = 0.1)
+
+# Note: The "group" is named "cluster" in the markers dataframe
+top_markers <- markers %>%
+  group_by(cluster) %>%
+  slice_max(order_by = avg_log2FC, n = 10) %>%
+  ungroup() %>%
+  separate(col = cluster, into = c("ct_gen", "cohort"), sep = "__")
+
+top.cohort.mrkrs <- cohort.mrkrs %>%
+  group_by(cluster) %>%
+  slice_max(order_by = abs(avg_log2FC), n = 20) %>%
+  ungroup()
+
+# 1. Extract combination info (already have from your double underscore split)
+# Create a combined grouping for ordering genes by cell type then cohort
+# Create combined group column
+top_markers <- top_markers %>%
+  mutate(group = paste(ct_gen, cohort, sep = "__"))
+
+# Pivot into heatmap matrix: rows = genes, columns = groups, values = avg_log2FC
+heatmap_df <- top_markers %>%
+  dplyr::select(gene, group, avg_log2FC) %>%
+  tidyr::pivot_wider(names_from = group, values_from = avg_log2FC)
+
+# Convert genes column to row names and matrix format
+heatmap_mat <- heatmap_df %>%
+  column_to_rownames("gene") %>%
+  as.matrix()
+
+# Define desired column order: cohorts side by side under each cell type
+ct_levels <- unique(top_markers$ct_gen)
+cohort_levels <- unique(top_markers$cohort)
+col_order <- unlist(lapply(ct_levels, function(ct) paste(ct, cohort_levels, sep = "__")))
+
+# Remove groups absent from heatmap and reorder columns accordingly
+col_order <- col_order[col_order %in% colnames(heatmap_mat)]
+heatmap_mat <- heatmap_mat[, col_order]
+
+# Determine gene order by arranging by cell type then cohort then gene
+gene_order_df <- top_markers %>%
+  distinct(gene, ct_gen, cohort) %>%
+  arrange(factor(ct_gen, levels = ct_levels),
+          factor(cohort, levels = cohort_levels),
+          gene)  # or avg_log2FC or any other sorting metric
+
+# Set factor levels for genes to control row order in heatmap
+heatmap_mat <- heatmap_mat[gene_order_df$gene, ]
+
+heatmap_mat[is.na(heatmap_mat)] <- 0
+
+annotation_col <- data.frame(
+  ct_gen = factor(sapply(strsplit(colnames(heatmap_mat), "__"), `[`, 1), levels = ct_levels),
+  cohort = factor(sapply(strsplit(colnames(heatmap_mat), "__"), `[`, 2), levels = cohort_levels)
+)
+rownames(annotation_col) <- colnames(heatmap_mat)
+
+annotation_colors <- list(
+  # cohort = cohort_colors,
+  # ct_gen = custom_colors
+)
+
+# Plot heatmap without row clustering to preserve gene order
+p <- pheatmap::pheatmap(
+    heatmap_mat,
+    cluster_rows = FALSE,
+    cluster_cols = FALSE,
+    annotation_col = annotation_col,
+    # annotation_colors = annotation_colors,
+    na_col = "black",
+    show_colnames = TRUE,
+    fontsize_col = 8,
+    fontsize_row = 6,
+    main = "Top DE Genes by Cell Type and Cohort"
+)
+print(p)
+ggsave(filename = paste0(PATH_output_figures, "/DEG_plots/per_ct_per_cohort_degs.png"),
+       plot = p, height = 24, width = 16)
+
+########
+# Calculate DEGs per cohort per cell type and plot heatmaps
+########
+AML_ct_gen <- c("Mono-like_precursors",
+                "CD16+_Non-Classical_Monocytes",
+                "CD19+_B_cells",
+                "Plasma_cells",
+                "Cycling_granulocyte-monocyte-like_progenitors",
+                "Cycling_erythroid_progenitors",
+                "Granulocytic-Neutrophilic-like_precursors",
+                "Cytotoxic_lymphocytes",
+                "CD4+_lymphocytes",
+                "Pro-Mono-like_precursors",
+                "Myeloblasts",
+                "Pluripotent_LSPC-like_blasts",
+                "Multipotent_LSPC-like_blasts_Lymphoid_bias",
+                "Multipotent_LSPC-like_blasts_Mk-Ery_bias",
+                "Leukemic_progenitor_cell_Lymphoid_bias",
+                "Monocyte-derived_Dentritic_cell")
+
+All_ct_gen <- c("CD4+_lymphocytes", "CD16+_Non-Classical_Monocytes",
+                "CD19+_B_cells", "Plasma_cells", "Cytotoxic_lymphocytes")
+
+for(aml_ct in AML_ct_gen){
+  print(aml_ct)
+  so <- subset(seurat.object, ct_gen == aml_ct)
+  so <- subset(so, subset = cohort %in% c("KMT2Ar", "NPM1-mut"))
+  mrkrs <- FindAllMarkers(so, group.by = "cohort", only.pos = FALSE,
+                          logfc.threshold = 0.25, min.pct = 0.1)
+  top.mrkrs <- mrkrs %>%
+    group_by(cluster) %>%
+    slice_max(order_by = avg_log2FC, n = 2500) %>%
+    ungroup()
+  plot.mrkrs <- mrkrs %>%
+    group_by(cluster) %>%
+    slice_max(order_by = avg_log2FC, n = 50) %>%
+    ungroup()
+  
+  write.csv(top.mrkrs, file = paste0(PATH_output_tables, "/per_ct_mrkrs/", aml_ct, "_mrkrs.csv"))
+  
+  p <- DoHeatmap(so, features = plot.mrkrs$gene, group.by = "cohort",
+                 size = 3, angle = 90)
+  print(p)
+  ggsave(filename = paste0(PATH_output_figures, "/per_ct_hmap/", aml_ct, "_hmap.png"), 
+         plot = p, width = 8, height = 16)
+}
+
+for(all_ct in All_ct_gen){
+  so <- subset(seurat.object, ct_gen == all_ct)
+  mrkrs <- FindAllMarkers(so, group.by = "cohort", only.pos = FALSE,
+                          logfc.threshold = 0.25, min.pct = 0.1)
+  top.mrkrs <- mrkrs %>%
+    group_by(cluster) %>%
+    slice_max(order_by = avg_log2FC, n = 2500) %>%
+    ungroup()
+  plot.mrkrs <- mrkrs %>%
+    group_by(cluster) %>%
+    slice_max(order_by = avg_log2FC, n = 50) %>%
+    ungroup()
+  
+  write.csv(top.mrkrs, file = paste0(PATH_output_tables, "/per_hd_ct_mrkrs/", all_ct, "_mrkrs.csv"))
+  
+  p <- DoHeatmap(so, features = plot.mrkrs$gene, group.by = "cohort",
+                 size = 3, angle = 90) 
+  print(p)
+  ggsave(filename = paste0(PATH_output_figures, "/per_hd_ct_hmap/", all_ct, "_hmap.png"), 
+         plot = p, width = 8, height = 16)
+}
+
+########
 # Plots per sample ID
 ########
 # First create sample_id variable in meta.data and then assign values for updepla_code (is a sample ID but sampleID is already taken)
 # depending on expID value, also provide location origin afterwards (will be useful in multiple group.by)
-
-#########
-# Generalized, unrefined annotation of clusters for gross image based classification
-#########
-seurat.object@meta.data <- seurat.object@meta.data %>%
-  mutate(cohort = case_when(
-    expID %in% c()
-  ))
-
-seurat.object@meta.data <- seurat.object@meta.data %>% 
-  mutate(ct_gen = case_when(
-    seurat_clusters %in% c("14", "20") ~ "Monocytes",
-    seurat_clusters %in% c("22", "30") ~ "B_cells",
-    seurat_clusters %in% c("5", "6", "12", "24", "26") ~ "Effector_lymphocytes",
-    seurat_clusters %in% c("9", "10", "11", "19", "26") ~ "CD4_lymphocytes",
-    seurat_clusters %in% c("2", "3", "8", "29", "13", "15") ~ "LSPC-like_cells",
-    seurat_clusters %in% c("7", "17", "27") ~ "Cycling_myeloid_progenitors",
-    seurat_clusters == "16" ~ "Cycling_erythroid_cells",
-    seurat_clusters == "1" ~ "Myeloblasts",
-    seurat_clusters %in% c("4", "25") ~ "Mono-like_cells",
-    seurat_clusters %in% c("21", "23", "28") ~ "cDC-like_cells",
-    seurat_clusters == "18" ~ "Neutrophil-like_cells",
-    TRUE ~ NA_character_
-  ))
-
-custom_colors <- c(
-  "B_cells" = "gray",
-  "CD4_lymphocytes" = "green",
-  "Effector_lymphocytes" = "darkgreen",
-  "Cycling_erythroid_cells" = "red",
-  "Cycling_myeloid_progenitors" = "blue",
-  "LSPC-like_cells" = "purple",
-  "Mono-like_cells" = "orange",
-  "Monocytes" = "cyan",
-  "Myeloblasts" = "yellow",
-  "Neutrophil-like_cells" = "pink",
-  "cDC-like_cells" = "lightblue"
-)
-
-seurat.object@meta.data <- seurat.object@meta.data %>% 
-  mutate(primary_mut = case_when(
-    updepla_code %in% c("a_CH1_AML", "a_CH10_AML", "a_CH11_AML", "a_CH12_AML", 
-                        "a_SL4_AML",  "a_SL5_AML",  "a_SL6_AML") ~ "NPM1-c.860-863dup",
-    updepla_code %in% c("a_CH4_AML",  "a_CH7_AML") ~ "NPM1-c.863-864insCCTG",
-    TRUE ~ NA_character_
-  ))
-
-seurat.object@meta.data <- seurat.object@meta.data %>%
-  mutate(provenance = case_when(
-    updepla_code %in% c("a_SL4_AML",  "a_SL5_AML",  "a_SL6_AML") ~ "AP-HP_SL",
-    updepla_code %in% c("a_CH1_AML", "a_CH10_AML", "a_CH11_AML", 
-                        "a_CH12_AML", "a_CH4_AML",  "a_CH7_AML") ~ "CHUV",
-    TRUE ~ NA_character_
-  ))
-
-# seurat.object@meta.data[["cohort"]] <- "NPM1-mut"
-
-# Combine mutation and location for plotting
-seurat.object@meta.data$pr_mut_loc <- paste(seurat.object$primary_mut, seurat.object$location)
-
-# Graphs to do: updepla_code, provenance, primary_mut, pr_mut_loc
-p <- DimPlot(seurat.object, split.by = c("provenance"), ncol = 3) +
-  theme(strip.text = element_text(size = 6))
-print(p)
-ggsave(filename = paste0(PATH_output_figures, '/unnamed_plots/split_umaps/umap_provenance.png'),
-       plot = p, width = 24, 
-       height = ceiling(length(unique(seurat.object@meta.data$updepla_code))/3)*4)
-ggsave(filename = paste0(PATH_output_figures, '/unnamed_plots/split_umaps/umap_provenance.pdf'),
-       plot = p, width = 24,
-       height = ceiling(length(unique(seurat.object@meta.data$updepla_code))/3)*4,
-       device = 'pdf', units = "in", useDingbats = FALSE)
-
-# Intermediate, more or less refined annotation of clusters, based on predominant signatures
-# for gross image based classification
-seurat.object@meta.data <- seurat.object@meta.data %>% 
-  mutate(ct_int = case_when(
-  seurat_clusters ...,
-  TRUE ~ NA_character_
-    ))
-
-saveRDS(file = paste0(PATH_output_objects, "/seurat_object_metadata_gen.rds"), seurat.object)
-print(paste("Final fully integrated seurat object saved to: ",
-            paste0(PATH_output_objects, "/seurat_object_metadata.rds")))
-
-seurat.object <- readRDS(paste0(PATH_output_objects, "/seurat_object_metadata.rds"))
-
 ######
 #Cluster annotation
 ######
@@ -919,12 +1049,13 @@ print("Note: Markers list 1: All markers, 2: top 500 EDGs, 3: bottom 500 DEGs")
 # all_genes <- rownames(seurat.object)
 # target_genes <- grep("HB", all_genes, value = TRUE, ignore.case = TRUE)
 
-mrkrs.2.plot <- list("CD34", "KIT", "CD38", "CD33",
-                     "ANPEP", "HLA.DRA", "CD64", "CD64", "CD4",
-                     "KMT2A", "NPM1", "NRAS", "KRAS", "MYC",
-                     "DNMT3A", "FLT3", "SRSF2", "TET2", "TBX21",
-                     "CEBPA", "PTPN11", "WT1", "NCAM1"
-                     # 
+mrkrs.2.plot <- c("MT-ND1", "MT-ND2", "MT-ND3", "MT-ND4", "MT-ND4L", "MT-ND5", "MT-ND6",
+                  "MT-CYB", "MT-CO1", "MT-CO2", "MT-CO3", "MT-ATP6", "MT-ATP8")
+  # list("CD34", "KIT", "CD38", "CD33",
+  #                    "ANPEP", "HLA.DRA", "CD64", "CD4",
+  #                    "KMT2A", "NPM1", "NRAS", "KRAS", "MYC",
+  #                    "DNMT3A", "FLT3", "SRSF2", "TET2", "TBX21",
+  #                    "CEBPA", "PTPN11", "WT1", "NCAM1")
                      # "CD8A", "GZMB", "PRF1", # "CD8+ Cytotoxic T cells"
                      # "CD14", "FCGR3A", "LYZ", "S100A9", # FCGR3A (low/–), "CD14+ Classical Monocytes"
                      # "CD4", "CCR7", "SELL", # "CD4+ Naive T cells"
@@ -938,7 +1069,7 @@ mrkrs.2.plot <- list("CD34", "KIT", "CD38", "CD33",
                      # "S100A8", # CD14 (low/–); "CD16+ Non-Classical Monocytes"
                      # "PPBP", "PF4", "ITGA2B", "GP9", "TUBB1", # "Platelets"
                      # "FCER1A", "CD1C", "CLEC10A", "HLA.DRA", "ITGAX" # CD11c = ITGAX; "FCER1A+ Dendritic cells"
-)
+
 
 # PI3K/Akt pathway  
 # c("IRS1", "PIK3CD", "PIK3R1", "PIK3AP1", "PIK3C3", "PTEN", 
@@ -972,50 +1103,75 @@ for(ftr in mrkrs.2.plot){
 ########
 # Create bubble plots
 ########
+seurat.object@meta.data <- seurat.object@meta.data %>% 
+  mutate(updepla_id = case_when(
+    expID == "NG078" ~ "a_CH4_HD",
+    expID %in% c("NG075", "TF057") ~ "a_CH6_HD",
+    expID == "JP314" ~ "a_CH8_HD",
+    expID == "TF061" ~ "a_CH10_HD",
+    # expID == "NG089" ~ "a_CH5_HD",
+    expID == "NG064" ~ "a_CH1_AML",
+    expID == "TF051" ~ "a_CH4_AML",
+    expID == "TF052" ~ "a_CH7_AML", # TF077
+    expID == "JP317" ~ "a_CH10_AML",
+    expID == "TF064" ~ "a_CH11_AML",
+    expID == "TF066" ~ "a_CH12_AML",
+    expID %in% c("JP315", "TF058") ~ "a_SL4_AML",
+    expID %in% c("TF063", "NG082") ~ "a_SL5_AML",
+    expID %in% c("NG083", "TF065") ~ "a_SL6_AML",
+    expID == "TF047" ~ "a_CH6_AML",
+    expID == "TF048" ~ "a_CH8_AML",
+    expID %in% c("JP318", "TF062") ~ "a_SL1_AML",
+    expID %in% c("TF059", "JP316") ~ "a_SL2_AML",
+    expID == "NG084" ~ "a_SL3_AML",
+    TRUE ~ NA_character_
+  ))
+
 dir.create(paste0(PATH_output_figures, "/bubble_plots"))
 
 # Cluster bubble plot
 # Count number of cells per expID and cluster
-cell_counts <- seurat.object@meta.data %>%
-  group_by(expID, cluster = Idents(seurat.object)) %>%
+sl.seur <- subset(seurat.object, subset = updepla_id %in% c("a_SL1_AML", "a_SL2_AML",
+                                                            "a_SL4_AML", "a_SL5_AML", "a_SL6_AML"))
+cell_counts <- sl.seur@meta.data %>%
+  group_by(updepla_id, location, ct_gen) %>%
   summarise(count = n(), .groups = "drop")
 
-# Calculate proportions per expID
 cell_counts <- cell_counts %>%
-  group_by(expID) %>%
-  mutate(proportion = count / sum(count)) # Normalize within expID
+  group_by(updepla_id, location) %>%
+  mutate(proportion = count / sum(count))
 
-# Step 1: Compute the dominant cluster proprotion per expID
-expID_order <- cell_counts %>%
-  group_by(expID) %>%
-  slice_max(order_by = proportion, n = 1) %>% # Select the cluster with the highest proportion per expID
-  arrange(desc(proportion)) %>% # Sort by highest proportion
-  pull(expID)
+# Create a combined factor with the order you want
+cell_counts <- cell_counts %>%
+  mutate(updepla_location = factor(paste(updepla_id, location, sep = "_")))
 
-# Ensure clusters are ordered
-# cell_counts$cluster <- factor(cell_counts$cluster, levels = unique(cell_counts$cluster))
-# cell_counts$expID <- factor(cell_counts$expID, levels = expID_order)
+cell_counts <- seurat.object@meta.data %>%
+  group_by(cohort, ct_gen) %>%
+  summarise(count = n(), .groups = "drop")
 
-# Bubble plot
-p <- ggplot(cell_counts, aes(x = cluster, y = expID, size = proportion, fill = factor(cluster))) +
-  geom_point(shape = 21, color = "black", alpha = 0.8) + # Bubble outline and transparency
-  scale_size_area(max_size = 10) + # Adjust max bubble size
-  scale_fill_viridis_d(option = "plasma") + # Color scale
-  labs(x = "Cluster", y = "Experiment ID", size = "Proportion") +
+# Optional: order factor levels explicitly if you want custom sorting
+# Example: order by updepla_id first, then location
+cell_counts <- cell_counts %>%
+  arrange(updepla_id, location) %>%
+  mutate(updepla_location = factor(updepla_location, levels = unique(updepla_location)))
+
+# Plot example
+p <- ggplot(cell_counts, aes(x = ct_gen, y = updepla_location, size = proportion, fill = factor(ct_gen))) +
+  geom_point(shape = 21, color = "black", alpha = 0.8) +
+  scale_size_area(max_size = 10) +
+  scale_fill_viridis_d(option = "plasma") +
+  labs(x = "Cell Type (ct_gen)", y = "Updepla ID + Location", size = "Proportion") +
   theme(
     legend.position = "none",
-    # legend.box = "vertical",
-    legend.margin = margin(10, 10, 10, 10),  # Add padding to prevent cropping
-    axis.text.x = element_text(angle = 90, hjust = 1), # Rotate cluster labels
-    panel.grind.major = element_line(color = "grey80"),
-    panel.grind.minor = element_blank()
+    axis.text.x = element_text(angle = 90, hjust = 1),
+    panel.grid.major = element_line(color = "grey80"),
+    panel.grid.minor = element_blank()
   )
-
 print(p)
 ggsave(filename = paste0(PATH_output_figures, '/bubble_plots/expID_bubble_plot.pdf'),
        plot = p, width = 12, height = 8,
        device = 'pdf', units = "in", useDingbats = FALSE)
-ggsave(filename = paste0(PATH_output_figures, "/bubble_plots/expID_bubble_plot.png"), 
+ggsave(filename = paste0(PATH_output_figures, "/bubble_plots/sl_samples_location_bubble_plot.png"), 
        plot = p, width = 12, height = 8)
 +
 
@@ -1023,7 +1179,7 @@ ggsave(filename = paste0(PATH_output_figures, "/bubble_plots/expID_bubble_plot.p
 ngenes <- 5 # Set number of top DEGs to look at
 
 # Select top ngenes DEGs for each cluster
-top.cluster.DEGs <- l.markers %>% group_by(cluster) %>% 
+top.cluster.DEGs <- top.markers %>% group_by(cluster) %>% 
   slice_max(order_by = avg_log2FC, n=ngenes) %>% ungroup() %>%
   arrange(cluster, desc(avg_log2FC)) %>% # Sort genes within each cluster by logFC
   mutate(gene= factor(gene, levels = unique(gene))) # Convert to ordered factor
@@ -1044,13 +1200,15 @@ print(p)
 ggsave(filename = paste0(PATH_output_figures, "/bubble_plots/gene_bubble_plot.png"), 
        plot = p, width = 12, height = 5*ngenes)
 
-
+# Calculate the markers
+top.markers <- FindAllMarkers(seurat.object, only.pos = FALSE, min.pct = min.pct,
+                              logfc.threshold = logfc.threshold, group.by = "ct_gen")
 
 # Plot canonical marker bubble plot per cluster
 # mrkrs.2.plot defined in the violin plot section
-path <- paste0(PATH_output_figures, "/bubble_plots/canonical_mrkrs.png")
+path <- paste0(PATH_output_figures, "/bubble_plots/mt_mrkrs.png")
 
-bubble.data <- l.markers %>%
+bubble.data <- top.markers %>%
   filter(gene %in% mrkrs.2.plot) %>%
   arrange(cluster, desc(avg_log2FC)) %>%
   mutate(cluster = factor(cluster),
@@ -1080,8 +1238,8 @@ if(length(mrkrs.2.plot) < 6){
 #########
 # Volcano plot
 #########
-for(clst in unique(l.markers$cluster)){
-  mrkrs <- l.markers %>% filter(cluster == clst)
+for(clst in unique(top.markers$cluster)){
+  mrkrs <- top.markers %>% filter(cluster == clst)
   
   # The significantly differentially expressed genes are the ones found in the upper-left and upper-right corners.
   # Add a column to the data frame to specify if they are UP- or DOWN- regulated (log2FoldChange respectively positive or negative)
@@ -1175,7 +1333,7 @@ GO_path = paste0(PATH_output_figures, "/GO_plots")
 filt.mrkrs.4.go <- l.mrkrs.named[[2]] %>%
   filter(grepl("NPM", cluster, ignore.case = FALSE))
 
-l_GO_results <- calculate_GO_terms(l.markers, species, 3, GO_path)
+l_GO_results <- calculate_GO_terms(top.markers, species, 3, GO_path)
 saveRDS(l_GO_results, file = paste0(PATH_output_tables, "/l_GO_results.Rds"))
 
 # l_GO_results <- readRDS(paste0(PATH_output_tables, "/l_GO_results.Rds"))
@@ -1198,25 +1356,6 @@ target_terms <- c("mitochondria", "ER", "endoplasmic reticulum", "nucleus", "nuc
                   "glycolysis", "glycolytic", "gluconeogenesis", "acetyl-CoA", "NAD",
                   "NADH", "NADP", "NADPH", "pyruvate")
 
-# Function to filter GO terms related to target pathways
-filter_target_terms <- function(go_results){
-  go_results[grep(paste(target_terms, collapse = "|"), go_results$Term, ignore.case = TRUE), ]
-}
-
-GO_target_plots <- lapply(names(l_GO_results), function(cluster_name){
-  cluster_results <- l_GO_results[[cluster_name]]
-  
-  # Filter for target-related terms
-  target_results <- filter_target_terms(cluster_results)
-  
-  # If there are target-related results, plot them
-  if(nrow(target_results) > 0) {
-    plot_go_terms_for_cluster(target_results, cluster_name, 20, paste0(PATH_output_figures, "/GO_plots/glycolysis"))
-  } else {
-    message(paste("No target-related GO terms found for cluster:", cluster_name))
-  }
-})
-lapply(GO_target_plots, print)
 
 ##########
 # Create annotation dataframe
@@ -1225,18 +1364,17 @@ meta_data <- seurat.object@meta.data #Select seurat object meta.data
 
 for(exp_id in unique(meta_data$expID)){
   print(exp_id)
-  path <- paste0(PATH_input_IRIS_imaging, "/", exp_id, "/metadata/seurat_metadata_gen.csv")
+  path <- paste0(PATH_input_IRIS_imaging, "/", exp_id, "/metadata/seurat_metadata_gen_sl.csv")
   md <- meta_data[meta_data$expID == exp_id,]
   write.csv(md, file = path, row.names = FALSE)
 }
 
-write.csv(meta_data, file = paste0(PATH_output_tables, "/kmt2ar_seurat_metadata_gen.csv"), row.names = FALSE)
+write.csv(meta_data, file = paste0(PATH_output_tables, "/seurat_metadata_gen.csv"), row.names = FALSE)
 
 ##########
 # Create signature dataframes and lists
 ##########
 "For general signatures, need to recalculate based on the clustering signatures"
-
 
 l.mrkrs <- readRDS(file = paste0(PATH_output_tables, "/l_markers.rds"))
 # Note: l_markers is the unnamed cluster signatures
