@@ -9,30 +9,41 @@ Combined integrations even using seuratv5 split layer integrations, lead to forc
 AML myeloblast populations into healthy BM clusters.
 "
 
+options(future.globals.maxSize = +Inf)
 #libraries
 library(dplyr)
-library(patchwork)
 library(Seurat)
 library(SeuratData)
 library(UpSetR)
-library(grid)
-library(gridExtra)
-library(ggplot2)
+
 library(topGO)
+library(fgsea)
 library(reticulate)
 library(leidenAlg)
 library(openxlsx)
+library(harmony)
+
+# library(cellmarkeraccordion)
+
+library(grid)
+library(gridExtra)
+library(ggplot2)
 library(RColorBrewer)
+library(patchwork)
 library(scales)
 library(ggrepel)
 library(EnhancedVolcano)
+library(stringr)
+
+library(topGO)
 library(biomaRt)
 library(data.table)
+
 
 #load custom functions around scRNA-seq with IRIS, imaging and tools used for analysis
 PATH_functions <- "/home/tferrari/updepla/users/tferrari/GitHub_repos/IRIS_Analysis_pipelines/RNA_analysis_pipeline/PBMC_seurat_functions"
 source(paste0(PATH_functions,"/seuratV5_integration_v2.R"))
-source(paste0(PATH_functions, "/support_transcriptome_integration.R"))
+source(paste0(PATH_functions,"/support_transcriptome_integration.R"))
 source(paste0(PATH_functions, "/count_annotation_matrix_creation.R"))
 source(paste0(PATH_functions, "/create_and_save_plots.R"))
 source(paste0(PATH_functions, "/calculate_signatures_markers.R"))
@@ -46,22 +57,16 @@ source(paste0(PATH_functions, "/create_annotation_dataframe.R"))
 userID <- "tferrari"
 analysisID <- "2024_PBMCs"
 #Samples to integrate
-sample_ids_IRIS <- c("JP303", "TF050", "JP304", # KMT2Ar no blasts (healthy profile)
-                     "TF047", "TF048", "NG079", "JP318", "TF059", # KMT2Ar PB samples
-                     "TF062", "JP316", # "NG084", # KMT2Ar BM
-                     "NG064", "TF051", "TF052", "JP317", "TF064", "TF066", "JP315", "TF063", "NG083", # NPM1 PB
-                     "TF058", "NG080", "NG082", "TF065", # NPM1 BM
-                     "NG078", "NG075", "JP314", "TF061", "TF057") # HD PB controls)
+sample_ids_IRIS <- c("NG078", "NG075", "TF057", "JP314", "TF061"
+) # HD-PB
 sample_ids <- c(sample_ids_IRIS)
 #Define paths
-PATH_input_IRIS_sequencing <- paste0("/home/",userID,"/updepla/projects/iris/4_sequencing_analysis")
-PATH_input_IRIS_imaging <- paste0("/home/",userID,"/updepla/users/tferrari/Experiments/Image_Analysis/AML_experiments/experiment_files")
-PATH_gtf_annotation <- paste0("/home/", userID, "/updepla/users/", userID,
-                              "/Experiments/RNA_Analysis/IRIS/gtf_annotations/gencode.v44.annotation.gtf")
+PATH_input_IRIS_sequencing <- paste0("/home/tferrari/updepla/projects/iris/4_sequencing_analysis")
+PATH_input_IRIS_imaging <- paste0("/home/tferrari/updepla/users/tferrari/Experiments/Image_Analysis/AML_experiments/experiment_files")
 
 PATH_output <- paste0("/home/",userID,
                       "/updepla/users/", userID, 
-                      "/Experiments/RNA_analysis/IRIS/AML_experiments/results/AML_samples/KMT2Ar_v_NPM1_v_HD_v_OSC_PB-BM/harmony")
+                      "/Experiments/RNA_analysis/IRIS/AML_experiments/results/tab_sapiens_projection")
 PATH_output_figures <- paste0(PATH_output,"/plots")
 PATH_output_objects <- paste0(PATH_output,"/objects")
 PATH_output_tables <- paste0(PATH_output,"/tables")
@@ -75,22 +80,31 @@ for(path in l.result.paths){
     message(paste("Directory already exists: ", path))
   }
 }
+
+
 ########
 #Signatures
 ########
 #Path signatures
-"Change sig paths"
-PATH_signature <- "/home/tferrari/NAS2/iris/1_scripts/iris_scRNAseq/3_signatures_genes"
+PATH_signature <- "/home/tferrari/updepla/users/tferrari/Experiments/RNA_Analysis/IRIS/AML_experiments/signatures"
 #Signatures PBMCs
-signatures.PBMCs <- read.delim("/home/tferrari/updepla/users/tferrari/Experiments/RNA_Analysis/IRIS/AML_experiments/signatures/healthy_sig.txt",
-                               sep = "\t", header = TRUE)
-signatures.BMMCs <- read.delim("/home/tferrari/updepla/users/tferrari/Experiments/RNA_Analysis/IRIS/AML_experiments/signatures/NPM1_NG064_BMMC_TSP21_TSP25_sig.txt",
-                               sep = "\t", header = TRUE)
+# signatures.PBMCs <- read.delim(paste0(PATH_signature,
+#                                       "/AML_v_HD_cell_sig_JP299.txt"),
+#                                sep = "\t")
+PATH_gtf_annotation <- paste0("/home/", userID, "/updepla/users/", userID,
+                              "/Experiments/RNA_Analysis/IRIS/AML_experiments/gtf_annotations/gencode.v44.annotation.gtf")
+signatures.PBMCs <- read.delim(paste0(PATH_signature,"/healthy_sig_top50.txt"),
+                               sep = "\t", header = TRUE)# Signatures cell cycle
 
+signatures.cibersortx.full <- read.delim(paste0(PATH_signature, "/AMLHierarchies_signatures/CIBERSORTx_scAML_Full_SignatureMatrix.txt"),
+                                         sep = "\t", header = TRUE)
+signatures.cibersortx.mal <- read.delim(paste0(PATH_signature, "/AMLHierarchies_signatures/CIBERSORTx_scAML_Malignant_SignatureMatrix.txt"),
+                                        sep = "\t", header = TRUE)
+
+#####
 # Signatures cell cycle
 signature_cell_cycle_human_mouse <- readRDS(paste0(PATH_signature,
-                                                   "/signature_cell_cycle_human_mouse.Rds"))
-#####
+                                                   "/signature_cell_cycle_human_mouse.rds"))
 #Parameters to be modified
 #####
 #Variables
@@ -99,13 +113,13 @@ species = "human"
 integrate_over = "expID" # Next should batch by "sampleID" and "cohort"
 
 #Threshing
-min_cells_percent = 0.005
+min_cells_percent = 0.025
 min_gene_number = 500
 mito_cutoff = 20
 min_nUMI = 2500
 
 #Set starting dimensions
-dims_use = 150
+dims_use = 70
 #common variables to regress are: "n_UMI", "percent.mt", "Phase"
 vars_to_regress <- c()
 
@@ -140,6 +154,42 @@ l.image.doublet.ROI.annotation <- annotate_doublets(PATH_input_IRIS_imaging,
                                                     sample_ids_IRIS)
 # LiquideDrop data
 l.meta.mtx <- create_matrix_meta_data(sample_ids_IRIS, l.image.doublet.ROI.annotation)
+
+
+#####
+#Batch integration with Seurat
+#####
+#Seurat
+print(unique(l.meta.mtx[[1]]$CellType_Condition))
+print(unique(l.meta.mtx[[1]]$expID))
+
+integration.results <- seurat_integrate(
+  signature_cell_cycle_human_mouse,
+  species,
+  cond.2.rmv,
+  l.meta.mtx[[2]],
+  l.meta.mtx[[1]],
+  integrate_over,
+  min_cells_percent,
+  min_gene_number,
+  mito_cutoff,
+  100,
+  vars_to_regress,
+  split.layers,
+  integrate.layers,
+  reduction,
+  paste0(PATH_output_figures, "/QC_plots"))
+
+seurat.object <- integration.results[[1]]
+
+dims_use <- 48
+#Find neighbors
+seurat.object <- FindNeighbors(seurat.object, reduction = reduction, 
+                               dims = 1:dims_use, verbose = TRUE)
+print("<<<Neighbors found>>>")
+
+saveRDS(file = paste0(PATH_output_objects, "/seurat_object_neighbors.rds"),
+        seurat.object)
 
 ########
 # Load in BMMC data and append the count matrix and meta_data to IRIS matrix and meta_data
@@ -257,47 +307,51 @@ mtx.BM.sub <- mtx.BM[, subsampled_cells]
 meta.data.BM.sub <- meta.data.BM[subsampled_cells, ]
 
 # Combine metadata and matrices
-combined.meta.data <- rbind(meta.data, meta.data.BM)
-combined.matrix <- cbind(mtx, mtx.BM)
+# combined.meta.data <- rbind(meta.data, meta.data.BM)
+# combined.matrix <- cbind(mtx, mtx.BM)
 
-saveRDS(combined.meta.data, file = paste0(PATH_output_objects, "/meta_data.rds"))
-saveRDS(combined.matrix, file = paste0(PATH_output_objects, "/matrix.rds"))
+saveRDS(meta.data.BM.sub, file = paste0(PATH_output_objects, "/tab_bm_meta_data.rds"))
+saveRDS(mtx.BM.sub, file = paste0(PATH_output_objects, "/tab_bm_matrix.rds"))
 
 #####
 #Batch integration with Seurat
 #####
 #Seurat
-
-integration.results <- seurat_integrate(
+integration.results.bm <- seurat_integrate(
   signature_cell_cycle_human_mouse,
   species,
   cond.2.rmv,
-  combined.matrix,
-  combined.meta.data,
+  mtx.BM.sub,
+  meta.data.BM.sub,
   integrate_over,
   min_cells_percent,
   min_gene_number,
   mito_cutoff,
-  dims_use,
+  100,
   vars_to_regress,
   split.layers,
   integrate.layers,
   reduction,
-  paste0(PATH_output_figures, "/QC_plots"))
+  paste0(PATH_output_figures, "/QC_plots_bm"))
 
-seurat.object <- integration.results[[1]]
-saveRDS(file = paste0(PATH_output_objects, "/seurat_object_no_neighbors.rds"),
-        seurat.object)
+seurat.object.tab <- integration.results.bm[[1]]
+
+saveRDS(file = paste0(PATH_output_objects, "/seurat_object_tab_no_neighbors.rds"),
+        seurat.object.tab)
 
 seurat.object <- readRDS(file = paste0(PATH_output_objects, "/seurat_object_no_neighbors.rds"))
 
-dims_use <- 94
+dims_use <- 54
 #Find neighbors
 seurat.object <- FindNeighbors(seurat.object, reduction = reduction, 
+                               dims = 1:dims_use, verbose = TRUE)
+seurat.object.tab <- FindNeighbors(seurat.object.tab, reduction = reduction, 
                                dims = 1:dims_use, verbose = TRUE)
 print("<<<Neighbors found>>>")
 
 saveRDS(file = paste0(PATH_output_objects, "/seurat_object_neighbors.rds"),
+        seurat.object)
+saveRDS(file = paste0(PATH_output_objects.tab, "/seurat_object_neighbors_tab.rds"),
         seurat.object)
 
 # seurat.object <- readRDS(file = paste0(PATH_output_objects, "/seurat_object_neighbors.rds"))

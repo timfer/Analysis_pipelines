@@ -52,7 +52,8 @@ analysisID <- "2024_PBMCs"
 #Samples to integrate
 sample_ids_IRIS <- c(
   # "NG078", "NG075", "TF057", "JP314", "TF061", #HD-PB
-  "TF051", "TF052", "JP317", "TF060", "TF064", "TF066", "JP315", "TF063", "NG083",# NPM1-PB
+  "TF051", "TF052", "JP317", "TF060", "TF064",
+  "TF066", "JP315", "TF063", "NG083",# NPM1-PB
   "TF058", "NG080", "NG082", "TF065" # NPM1-BM
   # "TF047", "TF048", "JP318", "TF059", "NG079", # KMT2Ar-PB
   # "TF062", "JP316", "NG084"# KMT2Ar-BM

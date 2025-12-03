@@ -5,25 +5,36 @@
 ## 2) Superimposte image data classification for DEG analysis and visualization
 
 #libraries
+options(future.globals.maxSize = +Inf)
+#libraries
 library(dplyr)
-library(patchwork)
 library(Seurat)
 library(SeuratData)
 library(UpSetR)
-library(grid)
-library(gridExtra)
-library(ggplot2)
+
 library(topGO)
+library(fgsea)
 library(reticulate)
 library(leidenAlg)
 library(openxlsx)
+library(harmony)
+
+# library(cellmarkeraccordion)
+
+library(grid)
+library(gridExtra)
+library(ggplot2)
 library(RColorBrewer)
+library(patchwork)
 library(scales)
+library(ggrepel)
+library(EnhancedVolcano)
+library(stringr)
 
 #load custom functions around scRNA-seq with IRIS, imaging and tools used for analysis
-PATH_functions <- "/home/tferrari/NAS2/iris/1_scripts/iris_scRNAseq/2_functions/scRNA-seq/PBMC_seurat_functions"
+PATH_functions <- "/home/tferrari/updepla/users/tferrari/GitHub_repos/IRIS_Analysis_pipelines/RNA_analysis_pipeline/PBMC_seurat_functions"
 source(paste0(PATH_functions,"/seuratV5_integration_v2.R"))
-source("/home/tferrari/NAS2/iris/1_scripts/iris_scRNAseq/2_functions/scRNA-seq/support_transcriptome_integration.R")
+source(paste0(PATH_functions,"/support_transcriptome_integration.R"))
 source(paste0(PATH_functions, "/count_annotation_matrix_creation.R"))
 source(paste0(PATH_functions, "/create_and_save_plots.R"))
 source(paste0(PATH_functions, "/calculate_signatures_markers.R"))
@@ -37,15 +48,16 @@ source(paste0(PATH_functions, "/create_annotation_dataframe.R"))
 userID <- "tferrari"
 analysisID <- "2024_PBMCs"
 #Samples to integrate
-sample_ids_IRIS <- c("NG064")
+sample_ids_IRIS <- c("NG078", "NG075", "TF057", "JP314", "TF061"
+                     ) # HD-PB
 sample_ids <- c(sample_ids_IRIS)
 #Define paths
-PATH_input_IRIS_sequencing <- paste0("/home/",userID,"/updepla/projects/iris/4_sequencing_analysis")
-PATH_input_IRIS_imaging <- paste0("/home/",userID,"/updepla/projects/iris/6_imaging_analysis")
+PATH_input_IRIS_sequencing <- paste0("/home/tferrari/updepla/projects/iris/4_sequencing_analysis")
+PATH_input_IRIS_imaging <- paste0("/home/tferrari/updepla/users/tferrari/Experiments/Image_Analysis/AML_experiments/experiment_files")
 
 PATH_output <- paste0("/home/",userID,
                       "/updepla/users/", userID, 
-                      "/Experiments/RNA_analysis/IRIS/CHUV_samples/IRIS_open_source/NG064_NPM1")
+                      "/Experiments/RNA_analysis/IRIS/AML_experiments/results/tab_sapiens_projection")
 PATH_output_figures <- paste0(PATH_output,"/plots")
 PATH_output_objects <- paste0(PATH_output,"/objects")
 PATH_output_tables <- paste0(PATH_output,"/tables")
@@ -64,33 +76,38 @@ for(path in l.result.paths){
 #Signatures
 ########
 #Path signatures
-PATH_signature <- "/home/tferrari/NAS2/iris/1_scripts/iris_scRNAseq/3_signatures_genes"
+PATH_signature <- "/home/tferrari/updepla/users/tferrari/Experiments/RNA_Analysis/IRIS/AML_experiments/signatures"
 #Signatures PBMCs
 # signatures.PBMCs <- read.delim(paste0(PATH_signature,
 #                                       "/AML_v_HD_cell_sig_JP299.txt"),
 #                                sep = "\t")
-signatures.PBMCs <- read.delim("/home/tferrari/updepla/users/tferrari/Experiments/RNA_Analysis/IRIS/CHUV_samples/signatures/top100_combined_sig.txt",
-                               sep = "\t", header = TRUE)
-# Signatures cell cycle
-signature_cell_cycle_human_mouse <- readRDS(paste0(PATH_signature,
-                                                   "/signature_cell_cycle_human_mouse.Rds"))
+signatures.PBMCs <- read.delim(paste0(PATH_signature,"/healthy_sig_top50.txt"),
+                               sep = "\t", header = TRUE)# Signatures cell cycle
+
+signatures.cibersortx.full <- read.delim(paste0(PATH_signature, "/AMLHierarchies_signatures/CIBERSORTx_scAML_Full_SignatureMatrix.txt"),
+                                         sep = "\t", header = TRUE)
+signatures.cibersortx.mal <- read.delim(paste0(PATH_signature, "/AMLHierarchies_signatures/CIBERSORTx_scAML_Malignant_SignatureMatrix.txt"),
+                                        sep = "\t", header = TRUE)
 
 #####
+# Signatures cell cycle
+signature_cell_cycle_human_mouse <- readRDS(paste0(PATH_signature,
+                                                   "/signature_cell_cycle_human_mouse.rds"))
 #Parameters to be modified
 #####
 #Variables
 species = "human"
 # Batch over "CC" or "expID"
-integrate_over = "expID"
+integrate_over = "expID" # Next should batch by "sampleID" and "cohort"
 
 #Threshing
-min_cells_percent = 0.005
+min_cells_percent = 0.025
 min_gene_number = 500
-mito_cutoff = 15
-min_nUMI = 3000
+mito_cutoff = 20
+min_nUMI = 2500
 
 #Set starting dimensions
-dims_use = 50
+dims_use = 70
 #common variables to regress are: "n_UMI", "percent.mt", "Phase"
 vars_to_regress <- c()
 
@@ -98,72 +115,77 @@ set.seed(300)
 
 #Set threshold values for marker DEGs
 min.pct <- 0.1
-logfc.threshold <- 0.2
+logfc.threshold <- 0.25
 
 #Set experiment IDs to be removed if necessary (only necessary if 
 #want to maintain "uniqueness" of clusters for datasets with low relative cell counts)
 cond.2.rmv <- c()
 
+#Set UMAP reduction name
 #Set whether to first split layers and then perform IntegrateLayers on the seurat.object
 #Will split and integrate layers if "yes"
 split.layers <- "yes"
-integrate.layers <- "no"
-# Integration method for integrate layers: CCAIntegration, RPCAIntegration, HarmonyIntegration
-# FastMNNIntegration, scVIIntegration
-#integration.method <- CCAIntegration
-
+integrate.layers <- "yes"
+integration <- "pca"
+reduction <- "harmony" # Option: "cca", "rpca", "harmony"
 #Select the type of community clustering algorithm
 cluster_algo <- "Leiden"
-
-#UMAP resolution
-resolution <- 0.6
-#Set UMAP reduction name
-integration.name <- "pca"
-reduction.name <- "umap"
-
-# Prepare the text to be printed
-text_content <- paste(
-  "##### Parameters to be Modified #####\n",
-  "sample_IDs: ", paste(sample_ids_IRIS, collapse = ", "), "\n",
-  "Species: ", species, "\n",
-  "Integrate Over: ", integrate_over, "\n",
-  "Minimum Cells Percent: ", min_cells_percent, "\n",
-  "Minimum Gene Number: ", min_gene_number, "\n",
-  "Mitochondrial Cutoff: ", mito_cutoff, "%\n",
-  "Minimum nUMI: ", min_nUMI, "\n",
-  "Dimensions to Use: ", dims_use, "\n",
-  "Variables to Regress: ", paste(vars_to_regress, collapse = ", "), "\n",
-  "Seed Value: ", 300, "\n",
-  "Minimum Percentage for Marker DEGs: ", min.pct, "\n",
-  "Log Fold Change Threshold: ", logfc.threshold, "\n",
-  "Conditions to Remove: ", paste(cond.2.rmv, collapse = ", "), "\n",
-  "Split Layers: ", split.layers, "\n",
-  "Integrate Layers: ", integrate.layers, "\n",
-  "Clustering Algorithm: ", cluster_algo, "\n",
-  "UMAP Resolution: ", resolution, "\n",
-  "UMAP Integration Name: ", integration.name, "\n",
-  "UMAP Reduction Name: ", reduction.name, "\n"
-)
-
-writeLines(text_content, con = paste0(PATH_output, "/integration_parameters.txt"))
 
 #######################################
 #Image data
 #######################################
 #####
-#Load Count matrix IRIS platform
+# Load Count matrix IRIS platform
 #####
 #Annotate doublets and store them in a list
 l.image.doublet.ROI.annotation <- annotate_doublets(PATH_input_IRIS_imaging, 
                                                     sample_ids_IRIS)
 #LiquideDrop data
-l.meta.mtx <- create_matrix_meta_data(sample_ids_IRIS, l.image.doublet.ROI.annotation)
+l.meta.mtx <- create_matrix_meta_data(sample_ids_IRIS, 
+                                      l.image.doublet.ROI.annotation)
+
+#####
+#Batch integration with Seurat
+#####
+#Seurat
+print(unique(l.meta.mtx[[1]]$CellType_Condition))
+print(unique(l.meta.mtx[[1]]$expID))
+
+integration.results <- seurat_integrate(
+  signature_cell_cycle_human_mouse,
+  species,
+  cond.2.rmv,
+  l.meta.mtx[[2]],
+  l.meta.mtx[[1]],
+  integrate_over,
+  min_cells_percent,
+  min_gene_number,
+  mito_cutoff,
+  100,
+  vars_to_regress,
+  split.layers,
+  integrate.layers,
+  reduction,
+  paste0(PATH_output_figures, "/QC_plots"))
+
+seurat.object <- integration.results[[1]]
+
+dims_use <- 48
+#Find neighbors
+seurat.object <- FindNeighbors(seurat.object, reduction = reduction, 
+                               dims = 1:dims_use, verbose = TRUE)
+print("<<<Neighbors found>>>")
+
+saveRDS(file = paste0(PATH_output_objects, "/seurat_object_neighbors.rds"),
+        seurat.object)
 
 #####
 #Load open source count matrices
 #####
-PATH_open_source_mtx <- "/home/tferrari/updepla/users/tferrari/Experiments/RNA_Analysis/open_source/GSE116256_van_Galen/count_matrix"
-data <- as.data.frame(fread(paste0(PATH_open_source_mtx, "/GSM3587940_AML329-D0.dem.txt.gz")))
+PATH_open_source_mtx <- "/home/tferrari/updepla/users/tferrari/Experiments/RNA_Analysis/IRIS/AML_experiments/open_source_controls/tabula_sapiens"
+seurat.tab.sap <- readRDS(paste0(PATH_open_source_mtx, "/tab_sapiens_marrow.rds"))
+
+p <- DimPlot(seurat.tab.sap, group.by = "cell_type", reduction = "umap")
 
 # Convert data frame to matrix
 rownames(data) <- data[[1]] # Set first column as row names (gene names)
